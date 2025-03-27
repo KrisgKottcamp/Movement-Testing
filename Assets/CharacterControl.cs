@@ -5,11 +5,15 @@ using UnityEngine.Rendering;
 
 public class CharacterControl : MonoBehaviour
 {
-    public Rigidbody2D rb;
+    private Rigidbody2D rb;
 
     public float jumpforce;
     public float fallMult;
-    public float lowJumpMult;
+
+    private float jumpTimeCounter;
+    [SerializeField] private float jumpTime;
+    private bool isJumping;
+
 
     private float coyoteTime = 0.2f;
     private float coyoteTimeCounter;
@@ -22,12 +26,15 @@ public class CharacterControl : MonoBehaviour
     public float maxSpeed = 20f;
     public float accelSpeed;
     public bool facingRight = true;
-  
+
+
+
+
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-   rb = GetComponent<Rigidbody2D>();
+        rb = GetComponent<Rigidbody2D>();
     }
 
     // Update is called once per frame
@@ -36,13 +43,37 @@ public class CharacterControl : MonoBehaviour
 
         //JUMPING
 
+        //jump input
+        if (Input.GetButtonDown("Jump"))
+        {
+            isJumping = true;
+            jumpTimeCounter = jumpTime;
+        }
+        if (Input.GetButton("Jump") && isJumping == true)
+        {
+            if (jumpTimeCounter > 0) 
+            {
+                rb.linearVelocity = Vector2.up * jumpforce;
+                jumpTimeCounter -= Time.deltaTime;
+            }
+            else
+            {
+                isJumping = false;
+            }
+        }
+        if (Input.GetButtonUp("Jump"))
+        { 
+            isJumping = false;
+        }
 
-        // coyote time
-        if (rb.linearVelocity.y == 0)
+
+
+            // coyote time
+            if (rb.linearVelocity.y == 0)
         {
             coyoteTimeCounter = coyoteTime;
         }
-        else 
+        else
         {
             coyoteTimeCounter -= Time.deltaTime;
         }
@@ -58,14 +89,14 @@ public class CharacterControl : MonoBehaviour
         }
 
 
-            //jump input
+        //jump activation
         if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
         {
             rb.linearVelocity = Vector2.up * jumpforce;
             jumpBufferCounter = 0f;
         }
-        if (Input.GetButtonUp("Jump"))
-        {
+        if (Input.GetButtonDown("Jump"))
+        {   
             coyoteTimeCounter = 0f;
         }
 
@@ -77,7 +108,7 @@ public class CharacterControl : MonoBehaviour
         }
         else if (rb.linearVelocity.y > 0 && jumpBufferCounter < 0f && coyoteTimeCounter < 0f)
         {
-            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMult - 1) * Time.deltaTime;
+            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * Time.deltaTime;
         }
 
 
@@ -94,10 +125,10 @@ public class CharacterControl : MonoBehaviour
             moveSpeed += Time.deltaTime * accelSpeed;
         }
 
-        if (mover == 0f)
-        {
-            moveSpeed = startSpeed;
-        }
+        //if (mover == 0f)
+        //{
+        //    moveSpeed = startSpeed;
+        //}
 
         if (mover > 0f && !facingRight)
         {
@@ -113,14 +144,14 @@ public class CharacterControl : MonoBehaviour
 
 
 
-    public void Walk(Vector2 direction) 
+    public void Walk(Vector2 direction)
     {
         rb.linearVelocity = (new Vector2(direction.x * moveSpeed, rb.linearVelocity.y));
     }
 
-    
 
-   public void Flip ()
+
+    public void Flip()
     {
         Vector3 currentScale = gameObject.transform.localScale;
         currentScale.x *= -1;

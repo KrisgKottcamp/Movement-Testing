@@ -412,7 +412,7 @@ Transform:
   m_GameObject: {fileID: 436611639}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.503, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1163,7 +1163,7 @@ Transform:
   m_GameObject: {fileID: 1112756819}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 12.13, y: 8.75, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2301,7 +2301,7 @@ Rigidbody2D:
   m_LinearDamping: 0
   m_AngularDamping: 0.05
   m_GravityScale: 5
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: 4d00613aa2fd64f43a3208d3438a2001, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -2321,7 +2321,7 @@ Transform:
   m_GameObject: {fileID: 2003299949}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -13.73, y: -3.4, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2386,15 +2386,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2455edc9c5e79b40bdd06fb7e756f7b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rb: {fileID: 0}
-  jumpforce: 25
+  jumpforce: 18
   fallMult: 10
-  lowJumpMult: 40
+  jumpTime: 0.05
   mover: 0
   startSpeed: 5
-  moveSpeed: 0
-  maxSpeed: 30
-  accelSpeed: 25
+  moveSpeed: 10
+  maxSpeed: 20
+  accelSpeed: 0
   facingRight: 1
 --- !u!114 &2003299955
 MonoBehaviour:
