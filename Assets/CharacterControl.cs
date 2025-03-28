@@ -13,18 +13,17 @@ public class CharacterControl : MonoBehaviour
     private float jumpTimeCounter;
     [SerializeField] private float jumpTime;
     private bool isJumping;
+    private bool isGrounded;
 
 
     private float coyoteTime = 0.2f;
     private float coyoteTimeCounter;
     private float jumpBufferTime = 0.2f;
     private float jumpBufferCounter;
+    public float missCompensation;
 
     public float mover;
-    public float startSpeed;
     public float moveSpeed;
-    public float maxSpeed = 20f;
-    public float accelSpeed;
     public bool facingRight = true;
 
 
@@ -43,8 +42,14 @@ public class CharacterControl : MonoBehaviour
 
         //JUMPING
 
+        if (rb.linearVelocity.y == 0)
+        {
+            isGrounded = true;
+        } else { isGrounded = false; }
+
+
         //jump input
-        if (Input.GetButtonDown("Jump"))
+        if (Input.GetButtonDown("Jump") && isGrounded == true)
         {
             isJumping = true;
             jumpTimeCounter = jumpTime;
@@ -68,20 +73,23 @@ public class CharacterControl : MonoBehaviour
 
 
 
-            // coyote time
-            if (rb.linearVelocity.y == 0)
+        // coyote time
+        if (isGrounded == true)
         {
             coyoteTimeCounter = coyoteTime;
+       
         }
         else
         {
             coyoteTimeCounter -= Time.deltaTime;
+
         }
 
         // jump buffer
         if (Input.GetButtonDown("Jump"))
         {
             jumpBufferCounter = jumpBufferTime;
+            
         }
         else
         {
@@ -92,10 +100,10 @@ public class CharacterControl : MonoBehaviour
         //jump activation
         if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
         {
-            rb.linearVelocity = Vector2.up * jumpforce;
+            rb.linearVelocity = Vector2.up * jumpforce * missCompensation;
             jumpBufferCounter = 0f;
         }
-        if (Input.GetButtonDown("Jump"))
+        if (Input.GetButton("Jump"))
         {   
             coyoteTimeCounter = 0f;
         }
@@ -120,15 +128,7 @@ public class CharacterControl : MonoBehaviour
 
         Walk(direction);
 
-        if (mover != 0f && moveSpeed < maxSpeed)
-        {
-            moveSpeed += Time.deltaTime * accelSpeed;
-        }
 
-        //if (mover == 0f)
-        //{
-        //    moveSpeed = startSpeed;
-        //}
 
         if (mover > 0f && !facingRight)
         {
