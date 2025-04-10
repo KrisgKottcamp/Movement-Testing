@@ -1,3 +1,4 @@
+using System.Runtime.ConstrainedExecution;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -26,7 +27,24 @@ public class CharacterControl : MonoBehaviour
     public float moveSpeed;
     public bool facingRight = true;
 
+    public LayerMask layersToHit;
 
+    public bool isWallSliding;
+    public float wallSlidingSpeed = 2f;
+
+    [SerializeField] private Transform wallCheck;
+    [SerializeField] private LayerMask wallLayer;
+
+
+    private bool isWallJumping;
+    private float wallJumpingDirection;
+    private float wallJumpingTime = 0.2f;
+    private float wallJumpingCounter;
+    private float wallJumpingDuration = 0.4f;
+    public Vector2 wallJumpingPower = new Vector2(-8f, 16f);
+
+    public float airInterpolant = 1f;
+    public float airInterpolantchange;
 
 
 
@@ -34,18 +52,24 @@ public class CharacterControl : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+
+        
     }
 
     // Update is called once per frame
     void Update()
     {
 
+        airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
+
         //JUMPING
 
         if (rb.linearVelocity.y == 0)
         {
             isGrounded = true;
-        } else { isGrounded = false; }
+        } else { isGrounded = false;
+          
+        }
 
 
         //jump input
@@ -53,10 +77,12 @@ public class CharacterControl : MonoBehaviour
         {
             isJumping = true;
             jumpTimeCounter = jumpTime;
+           
+
         }
         if (Input.GetButton("Jump") && isJumping == true)
         {
-            if (jumpTimeCounter > 0) 
+            if (jumpTimeCounter > 0)
             {
                 rb.linearVelocity = Vector2.up * jumpforce;
                 jumpTimeCounter -= Time.deltaTime;
@@ -67,7 +93,7 @@ public class CharacterControl : MonoBehaviour
             }
         }
         if (Input.GetButtonUp("Jump"))
-        { 
+        {
             isJumping = false;
         }
 
@@ -77,19 +103,16 @@ public class CharacterControl : MonoBehaviour
         if (isGrounded == true)
         {
             coyoteTimeCounter = coyoteTime;
-       
         }
         else
         {
             coyoteTimeCounter -= Time.deltaTime;
-
         }
 
         // jump buffer
         if (Input.GetButtonDown("Jump"))
         {
             jumpBufferCounter = jumpBufferTime;
-            
         }
         else
         {
@@ -104,7 +127,7 @@ public class CharacterControl : MonoBehaviour
             jumpBufferCounter = 0f;
         }
         if (Input.GetButton("Jump"))
-        {   
+        {
             coyoteTimeCounter = 0f;
         }
 
@@ -123,33 +146,125 @@ public class CharacterControl : MonoBehaviour
 
 
         //MOVEMENT
-        mover = Input.GetAxisRaw("Horizontal");
-        Vector2 direction = new Vector2(mover, 0);
 
-        Walk(direction);
-
-
-
-        if (mover > 0f && !facingRight)
+        if (!isWallJumping)
         {
-            Flip();
+            mover = Input.GetAxisRaw("Horizontal");
+            Vector2 direction = new Vector2(mover, 0);
+
+            Walk(direction);
+
+
+
+            if (mover > 0f && !facingRight)
+            {
+                Flip();
+            }
+
+            if (mover < 0f && facingRight)
+            {
+                Flip();
+            }
+        }
+        
+
+
+        //Head Hit Raycast
+        var headHit = Physics2D.Raycast(transform.position, Vector2.up, 0.6f, layersToHit);
+        
+        if (headHit.collider && rb.linearVelocityY > 0)
+        {
+            Debug.Log("Something Was Hit");
+            rb.linearVelocityY = -7f;
+            isJumping = false;
+
         }
 
-        if (mover < 0f && facingRight)
-        {
-            Flip();
-        }
+        WallSlide();
+        WallJump();
+
 
     }
 
 
 
+    //GroudCheck
+
+    private void GroundCheck()
+    {
+
+    }
+
+
+
+
+
+    //WallSlide
     public void Walk(Vector2 direction)
     {
-        rb.linearVelocity = (new Vector2(direction.x * moveSpeed, rb.linearVelocity.y));
+        var currentLinearVelocity = rb.linearVelocity;
+        var desiredVelocity = (new Vector2(direction.x * moveSpeed, rb.linearVelocity.y));
+        
+        var newVelocity = Vector2.Lerp(currentLinearVelocity, desiredVelocity, airInterpolant);
+        rb.linearVelocity = newVelocity;
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.DrawSphere(wallCheck.position, 0.2f);
+    }
+    public bool isWalled()
+    {
+        return Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer);
+    }
+
+    private void WallSlide()
+    {
+        if (isWalled() && rb.linearVelocityY < 0)
+        {
+            isWallSliding = true;
+            rb.linearVelocityY -= (rb.linearVelocityY - wallSlidingSpeed);
+        }
+        else {
+            isWallSliding = false;
+        }
     }
 
 
+    //WallJump
+
+    private void WallJump()
+    {
+        if (isWalled() && rb.linearVelocityY < 2f && mover != 0)
+        {
+            isWallJumping = false;
+            wallJumpingDirection = -transform.localScale.x;
+            wallJumpingCounter = wallJumpingTime;
+
+            CancelInvoke(nameof(StopWallJumping));
+        }
+        else
+        {
+            wallJumpingCounter -= Time.deltaTime;
+        }
+
+        if (Input.GetButtonDown("Jump") && wallJumpingCounter > 0f)
+        {
+            isWallJumping = true;
+            airInterpolant = 0f;
+            rb.linearVelocity = new Vector2(wallJumpingDirection * wallJumpingPower.x, wallJumpingPower.y);
+            wallJumpingCounter = 0f;
+            Invoke(nameof(StopWallJumping), wallJumpingCounter);
+        }
+
+
+
+    }
+
+    private void StopWallJumping()
+    {
+        isWallJumping = false;
+    }
 
     public void Flip()
     {
