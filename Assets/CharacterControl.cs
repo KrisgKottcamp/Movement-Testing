@@ -14,12 +14,11 @@ public class CharacterControl : MonoBehaviour
     private float jumpTimeCounter;
     [SerializeField] private float jumpTime;
     private bool isJumping;
-    private bool isGrounded;
 
 
     private float coyoteTime = 0.2f;
     private float coyoteTimeCounter;
-    private float jumpBufferTime = 0.2f;
+    private float jumpBufferTime = 0.1f;
     private float jumpBufferCounter;
     public float missCompensation;
 
@@ -35,11 +34,12 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] private Transform wallCheck;
     [SerializeField] private LayerMask wallLayer;
 
+    [SerializeField] private Transform groundCheck;
 
-    private bool isWallJumping;
+    public bool isWallJumping;
     private float wallJumpingDirection;
-    private float wallJumpingTime = 0.2f;
-    private float wallJumpingCounter;
+    public float wallJumpingTime = .2f;
+    public float wallJumpingCounter;
     private float wallJumpingDuration = 0.4f;
     public Vector2 wallJumpingPower = new Vector2(-8f, 16f);
 
@@ -64,16 +64,11 @@ public class CharacterControl : MonoBehaviour
 
         //JUMPING
 
-        if (rb.linearVelocity.y == 0)
-        {
-            isGrounded = true;
-        } else { isGrounded = false;
-          
-        }
+
 
 
         //jump input
-        if (Input.GetButtonDown("Jump") && isGrounded == true)
+        if (Input.GetButtonDown("Jump") && isGrounded() == true )
         {
             isJumping = true;
             jumpTimeCounter = jumpTime;
@@ -100,7 +95,7 @@ public class CharacterControl : MonoBehaviour
 
 
         // coyote time
-        if (isGrounded == true)
+        if (isGrounded() == true)
         {
             coyoteTimeCounter = coyoteTime;
         }
@@ -190,9 +185,9 @@ public class CharacterControl : MonoBehaviour
 
     //GroudCheck
 
-    private void GroundCheck()
+    public bool isGrounded()
     {
-
+        return Physics2D.OverlapCircle(groundCheck.position, 0.2f, wallLayer);
     }
 
 
@@ -220,7 +215,7 @@ public class CharacterControl : MonoBehaviour
 
     private void WallSlide()
     {
-        if (isWalled() && rb.linearVelocityY < 0)
+        if (isWalled() && rb.linearVelocityY < 0 && mover != 0)
         {
             isWallSliding = true;
             rb.linearVelocityY -= (rb.linearVelocityY - wallSlidingSpeed);
@@ -231,11 +226,14 @@ public class CharacterControl : MonoBehaviour
     }
 
 
+
+
+
     //WallJump
 
     private void WallJump()
     {
-        if (isWalled() && rb.linearVelocityY < 2f && mover != 0)
+        if (isWalled() && !isGrounded() && mover != 0)
         {
             isWallJumping = false;
             wallJumpingDirection = -transform.localScale.x;
@@ -248,18 +246,41 @@ public class CharacterControl : MonoBehaviour
             wallJumpingCounter -= Time.deltaTime;
         }
 
-        if (Input.GetButtonDown("Jump") && wallJumpingCounter > 0f)
+        if (Input.GetButtonDown("Jump") && wallJumpingCounter > 0f && isWalled())
         {
-            isWallJumping = true;
-            airInterpolant = 0f;
-            rb.linearVelocity = new Vector2(wallJumpingDirection * wallJumpingPower.x, wallJumpingPower.y);
-            wallJumpingCounter = 0f;
-            Invoke(nameof(StopWallJumping), wallJumpingCounter);
+            isWallJumping = true; 
+            jumpTimeCounter = jumpTime;
+
+        }
+
+        if (Input.GetButton("Jump") && isWallJumping == true)
+        {
+            if (jumpTimeCounter > 0f)
+            {
+                airInterpolant = 0f;
+                rb.linearVelocity = new Vector2(wallJumpingDirection * wallJumpingPower.x, wallJumpingPower.y);
+                wallJumpingCounter = 0f;
+                Invoke(nameof(StopWallJumping), wallJumpingCounter);
+
+                jumpTimeCounter -= Time.deltaTime;
+                Debug.Log("Wall Jump Triggered");
+            }
+        }
+
+        if (Input.GetButtonUp("Jump"))
+        {
+            isWallJumping = false;
+        }
+
+        if (isGrounded() == true)
+        {
+            airInterpolant = 1;
+            wallJumpingCounter = wallJumpingTime;
         }
 
 
-
     }
+
 
     private void StopWallJumping()
     {
@@ -276,3 +297,4 @@ public class CharacterControl : MonoBehaviour
     }
 
 }
+
