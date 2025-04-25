@@ -46,6 +46,19 @@ public class CharacterControl : MonoBehaviour
     public float airInterpolant = 1f;
     public float airInterpolantchange;
 
+    public bool isWallGrabbing;
+    public float wallClimbSpeed;
+    public float wallMover;
+
+
+    public Facing facing;
+    public Facing desiredFacing;
+
+    public enum Facing
+    {
+        Left = 0,
+        Right = 1,
+    }
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -145,10 +158,11 @@ public class CharacterControl : MonoBehaviour
         if (!isWallJumping)
         {
             mover = Input.GetAxisRaw("Horizontal");
-            Vector2 direction = new Vector2(mover, 0);
+            wallMover = Input.GetAxisRaw("Vertical");
+            Vector2 direction = new Vector2(mover, wallMover);
 
             Walk(direction);
-
+            wallGrab(direction);
 
 
             if (mover > 0f && !facingRight)
@@ -177,6 +191,7 @@ public class CharacterControl : MonoBehaviour
 
         WallSlide();
         WallJump();
+        
 
 
     }
@@ -226,7 +241,42 @@ public class CharacterControl : MonoBehaviour
     }
 
 
+    //WallGrab
 
+    public void wallGrab(Vector2 direction)
+    {
+
+
+
+        if (isWalled() && Input.GetKey(KeyCode.LeftShift))
+        {
+            isWallGrabbing = true;
+        } else { isWallGrabbing = false;}
+
+        if (isWallGrabbing)
+        {
+            
+            rb.linearVelocity *= 0f;
+            rb.gravityScale = 3;
+
+            if (wallMover != 0)
+            {
+                rb.linearVelocityY = rb.linearVelocityY = direction.y * wallClimbSpeed;
+            }
+
+        } else {rb.gravityScale = 5;}
+
+        if (isWallGrabbing && Input.GetButton("Jump"))
+        {
+            mover = 0;
+            isWallGrabbing = false;
+            isWallJumping = true;
+
+            jumpTimeCounter = jumpTime;
+        }
+
+    }
+  
 
 
     //WallJump
@@ -236,6 +286,7 @@ public class CharacterControl : MonoBehaviour
         if (isWalled() && !isGrounded() && mover != 0)
         {
             isWallJumping = false;
+            isWallGrabbing = false;
             wallJumpingDirection = -transform.localScale.x;
             wallJumpingCounter = wallJumpingTime;
 
@@ -248,7 +299,8 @@ public class CharacterControl : MonoBehaviour
 
         if (Input.GetButtonDown("Jump") && wallJumpingCounter > 0f && isWalled())
         {
-            isWallJumping = true; 
+            isWallJumping = true;
+            
             jumpTimeCounter = jumpTime;
 
         }
@@ -264,6 +316,7 @@ public class CharacterControl : MonoBehaviour
 
                 jumpTimeCounter -= Time.deltaTime;
                 Debug.Log("Wall Jump Triggered");
+               
             }
         }
 
@@ -287,6 +340,7 @@ public class CharacterControl : MonoBehaviour
         isWallJumping = false;
     }
 
+    //Original Flip
     public void Flip()
     {
         Vector3 currentScale = gameObject.transform.localScale;

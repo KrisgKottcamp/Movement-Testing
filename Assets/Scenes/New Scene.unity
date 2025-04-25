@@ -500,6 +500,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 567323839}
     - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
+      propertyPath: wallClimbSpeed
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
       propertyPath: wallJumpingTime
       value: 0.1
       objectReference: {fileID: 0}
