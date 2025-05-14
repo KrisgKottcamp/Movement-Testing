@@ -1,7 +1,9 @@
+using System.Collections;
 using System.Runtime.ConstrainedExecution;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.InputSystem;
 
 
 public class CharacterControl : MonoBehaviour
@@ -16,7 +18,7 @@ public class CharacterControl : MonoBehaviour
     private bool isJumping;
 
 
-    private float coyoteTime = 0.2f;
+    private float coyoteTime = 0.13f;
     private float coyoteTimeCounter;
     private float jumpBufferTime = 0.1f;
     private float jumpBufferCounter;
@@ -51,14 +53,22 @@ public class CharacterControl : MonoBehaviour
     public float wallMover;
 
 
-    public Facing facing;
-    public Facing desiredFacing;
+    //Dashing
+    public float dashingSpeed;
+    public float dashingTime;
+    private Vector2 dashingDir;
+    public bool isDashing;
+    private bool canDash = true;
 
-    public enum Facing
-    {
-        Left = 0,
-        Right = 1,
-    }
+
+    //public Facing facing;
+    //public Facing desiredFacing;
+
+    //public enum Facing
+    //{
+    //    Left = 0,
+    //    Right = 1,
+    //}
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -66,7 +76,7 @@ public class CharacterControl : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
 
-        
+
     }
 
     // Update is called once per frame
@@ -81,11 +91,11 @@ public class CharacterControl : MonoBehaviour
 
 
         //jump input
-        if (Input.GetButtonDown("Jump") && isGrounded() == true )
+        if (Input.GetButtonDown("Jump") && isGrounded() == true)
         {
             isJumping = true;
             jumpTimeCounter = jumpTime;
-           
+
 
         }
         if (Input.GetButton("Jump") && isJumping == true)
@@ -175,12 +185,12 @@ public class CharacterControl : MonoBehaviour
                 Flip();
             }
         }
-        
+
 
 
         //Head Hit Raycast
         var headHit = Physics2D.Raycast(transform.position, Vector2.up, 0.6f, layersToHit);
-        
+
         if (headHit.collider && rb.linearVelocityY > 0)
         {
             Debug.Log("Something Was Hit");
@@ -191,7 +201,8 @@ public class CharacterControl : MonoBehaviour
 
         WallSlide();
         WallJump();
-        
+        Dashing();
+
 
 
     }
@@ -214,7 +225,7 @@ public class CharacterControl : MonoBehaviour
     {
         var currentLinearVelocity = rb.linearVelocity;
         var desiredVelocity = (new Vector2(direction.x * moveSpeed, rb.linearVelocity.y));
-        
+
         var newVelocity = Vector2.Lerp(currentLinearVelocity, desiredVelocity, airInterpolant);
         rb.linearVelocity = newVelocity;
     }
@@ -235,7 +246,8 @@ public class CharacterControl : MonoBehaviour
             isWallSliding = true;
             rb.linearVelocityY -= (rb.linearVelocityY - wallSlidingSpeed);
         }
-        else {
+        else
+        {
             isWallSliding = false;
         }
     }
@@ -248,14 +260,15 @@ public class CharacterControl : MonoBehaviour
 
 
 
-        if (isWalled() && Input.GetKey(KeyCode.LeftShift))
+        if (isWalled() && Input.GetKey(KeyCode.RightShift))
         {
             isWallGrabbing = true;
-        } else { isWallGrabbing = false;}
+        }
+        else { isWallGrabbing = false; }
 
         if (isWallGrabbing)
         {
-            
+
             rb.linearVelocity *= 0f;
             rb.gravityScale = 3;
 
@@ -264,7 +277,8 @@ public class CharacterControl : MonoBehaviour
                 rb.linearVelocityY = rb.linearVelocityY = direction.y * wallClimbSpeed;
             }
 
-        } else {rb.gravityScale = 5;}
+        }
+        else { rb.gravityScale = 5; }
 
         if (isWallGrabbing && Input.GetButton("Jump"))
         {
@@ -276,7 +290,7 @@ public class CharacterControl : MonoBehaviour
         }
 
     }
-  
+
 
 
     //WallJump
@@ -300,7 +314,7 @@ public class CharacterControl : MonoBehaviour
         if (Input.GetButtonDown("Jump") && wallJumpingCounter > 0f && isWalled())
         {
             isWallJumping = true;
-            
+
             jumpTimeCounter = jumpTime;
 
         }
@@ -316,7 +330,7 @@ public class CharacterControl : MonoBehaviour
 
                 jumpTimeCounter -= Time.deltaTime;
                 Debug.Log("Wall Jump Triggered");
-               
+
             }
         }
 
@@ -350,5 +364,47 @@ public class CharacterControl : MonoBehaviour
         facingRight = !facingRight;
     }
 
-}
 
+    private void Dashing()
+    {
+        var dashInput = Input.GetButtonDown("Dash");
+
+        if (dashInput && canDash)
+        {
+            isDashing = true;
+            canDash = false;
+            dashingDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+
+           if (dashingDir == Vector2.zero)
+           {
+               dashingDir = new Vector2(transform.localScale.x, 0);
+            }
+            StartCoroutine(StopDashing());
+
+        }
+
+
+        if (isDashing) 
+        {
+            rb.linearVelocity = dashingDir.normalized * dashingSpeed;
+            rb.gravityScale = 0;
+            airInterpolant = 0f;
+            return;
+            
+        }
+        if (isGrounded())
+        {
+            canDash = true;
+            rb.gravityScale = 5;
+        }
+    }
+
+    private IEnumerator StopDashing()
+    {
+        yield return new WaitForSeconds(dashingTime);
+        isDashing = false;
+        rb.linearVelocity *= 0f;
+        
+    }
+
+}

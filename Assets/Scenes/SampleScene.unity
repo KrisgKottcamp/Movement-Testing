@@ -1696,9 +1696,17 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
+      propertyPath: dashingTime
+      value: 0.15
+      objectReference: {fileID: 0}
+    - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
       propertyPath: groundCheck
       value: 
       objectReference: {fileID: 320508619}
+    - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
+      propertyPath: dashingSpeed
+      value: 28
+      objectReference: {fileID: 0}
     - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
       propertyPath: wallClimbSpeed
       value: 4
@@ -1709,7 +1717,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
       propertyPath: wallJumpingPower.x
-      value: 15
+      value: 16
       objectReference: {fileID: 0}
     - target: {fileID: 3633403494951008690, guid: f43eb93d2bb61c242bc76547a3a03c39, type: 3}
       propertyPath: wallJumpingPower.y
