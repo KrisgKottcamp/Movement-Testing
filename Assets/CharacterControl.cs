@@ -10,6 +10,9 @@ public class CharacterControl : MonoBehaviour
 {
     private Rigidbody2D rb;
 
+    #region Movement Settings
+
+    [Header("Jump Settings")]
     public float jumpforce;
     public float fallMult;
 
@@ -17,19 +20,25 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] private float jumpTime;
     private bool isJumping;
 
-
+    [Header("Coyote & Buffer")]
     private float coyoteTime = 0.13f;
     private float coyoteTimeCounter;
     private float jumpBufferTime = 0.1f;
     private float jumpBufferCounter;
     public float missCompensation;
 
+    [Header("Walk Settings")]
     public float mover;
     public float moveSpeed;
     public bool facingRight = true;
 
     public LayerMask layersToHit;
 
+    #endregion
+
+    #region Movement Settings
+
+    [Header("Wall Slide/Grab")]
     public bool isWallSliding;
     public float wallSlidingSpeed = 2f;
 
@@ -38,6 +47,7 @@ public class CharacterControl : MonoBehaviour
 
     [SerializeField] private Transform groundCheck;
 
+    [Header("Wall Jump")]
     public bool isWallJumping;
     private float wallJumpingDirection;
     public float wallJumpingTime = .2f;
@@ -51,24 +61,18 @@ public class CharacterControl : MonoBehaviour
     public bool isWallGrabbing;
     public float wallClimbSpeed;
     public float wallMover;
+    #endregion
 
 
-    //Dashing
+    #region Dash Settings
+
+    [Header("Dash")]
     public float dashingSpeed;
     public float dashingTime;
     private Vector2 dashingDir;
     public bool isDashing;
     private bool canDash = true;
-
-
-    //public Facing facing;
-    //public Facing desiredFacing;
-
-    //public enum Facing
-    //{
-    //    Left = 0,
-    //    Right = 1,
-    //}
+    #endregion
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -82,6 +86,12 @@ public class CharacterControl : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+
+        WallSlide();
+        WallJump();
+        Dashing();
+
+
 
         airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
 
@@ -199,9 +209,6 @@ public class CharacterControl : MonoBehaviour
 
         }
 
-        WallSlide();
-        WallJump();
-        Dashing();
 
 
 
@@ -375,22 +382,22 @@ public class CharacterControl : MonoBehaviour
             canDash = false;
             dashingDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 
-           if (dashingDir == Vector2.zero)
-           {
-               dashingDir = new Vector2(transform.localScale.x, 0);
+            if (dashingDir == Vector2.zero)
+            {
+                dashingDir = new Vector2(transform.localScale.x, 0);
             }
             StartCoroutine(StopDashing());
 
         }
 
 
-        if (isDashing) 
+        if (isDashing)
         {
             rb.linearVelocity = dashingDir.normalized * dashingSpeed;
             rb.gravityScale = 0;
             airInterpolant = 0f;
             return;
-            
+
         }
         if (isGrounded())
         {
@@ -404,7 +411,7 @@ public class CharacterControl : MonoBehaviour
         yield return new WaitForSeconds(dashingTime);
         isDashing = false;
         rb.linearVelocity *= 0f;
-        
+
     }
 
 }
