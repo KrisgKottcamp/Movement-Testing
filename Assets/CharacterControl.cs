@@ -8,31 +8,38 @@ using UnityEngine.InputSystem;
 
 public class CharacterControl : MonoBehaviour
 {
-    private Rigidbody2D rb;
+    
 
     #region Movement Settings
 
-    [Header("Jump Settings")]
-    public float jumpforce;
-    public float fallMult;
+    [Header("Components")]
+    [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private Transform wallCheck;
+    [SerializeField] private LayerMask wallLayer;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] public LayerMask layersToHit;
 
+    [Header("Jump Settings")]
+    [SerializeField] private float jumpforce;
+    [SerializeField] private float fallMult;
     private float jumpTimeCounter;
     [SerializeField] private float jumpTime;
     private bool isJumping;
+    
 
     [Header("Coyote & Buffer")]
     private float coyoteTime = 0.13f;
     private float coyoteTimeCounter;
     private float jumpBufferTime = 0.1f;
     private float jumpBufferCounter;
-    public float missCompensation;
+    [SerializeField] private float missCompensation;
 
     [Header("Walk Settings")]
     public float mover;
     public float moveSpeed;
     public bool facingRight = true;
 
-    public LayerMask layersToHit;
+  
 
     #endregion
 
@@ -42,10 +49,7 @@ public class CharacterControl : MonoBehaviour
     public bool isWallSliding;
     public float wallSlidingSpeed = 2f;
 
-    [SerializeField] private Transform wallCheck;
-    [SerializeField] private LayerMask wallLayer;
 
-    [SerializeField] private Transform groundCheck;
 
     [Header("Wall Jump")]
     public bool isWallJumping;
@@ -75,11 +79,13 @@ public class CharacterControl : MonoBehaviour
     #endregion
 
 
+
+
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-
 
     }
 
@@ -90,91 +96,11 @@ public class CharacterControl : MonoBehaviour
         WallSlide();
         WallJump();
         Dashing();
+        JumpController();
 
 
-
-        airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
-
-        //JUMPING
-
-
-
-
-        //jump input
-        if (Input.GetButtonDown("Jump") && isGrounded() == true)
-        {
-            isJumping = true;
-            jumpTimeCounter = jumpTime;
-
-
-        }
-        if (Input.GetButton("Jump") && isJumping == true)
-        {
-            if (jumpTimeCounter > 0)
-            {
-                rb.linearVelocity = Vector2.up * jumpforce;
-                jumpTimeCounter -= Time.deltaTime;
-            }
-            else
-            {
-                isJumping = false;
-            }
-        }
-        if (Input.GetButtonUp("Jump"))
-        {
-            isJumping = false;
-        }
-
-
-
-        // coyote time
-        if (isGrounded() == true)
-        {
-            coyoteTimeCounter = coyoteTime;
-        }
-        else
-        {
-            coyoteTimeCounter -= Time.deltaTime;
-        }
-
-        // jump buffer
-        if (Input.GetButtonDown("Jump"))
-        {
-            jumpBufferCounter = jumpBufferTime;
-        }
-        else
-        {
-            jumpBufferCounter -= Time.deltaTime;
-        }
-
-
-        //jump activation
-        if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
-        {
-            rb.linearVelocity = Vector2.up * jumpforce * missCompensation;
-            jumpBufferCounter = 0f;
-        }
-        if (Input.GetButton("Jump"))
-        {
-            coyoteTimeCounter = 0f;
-        }
-
-
-        //fast falling
-        if (rb.linearVelocity.y < 0)
-        {
-            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMult - 1) * Time.deltaTime;
-        }
-        else if (rb.linearVelocity.y > 0 && jumpBufferCounter < 0f && coyoteTimeCounter < 0f)
-        {
-            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * Time.deltaTime;
-        }
-
-
-
-
-        //MOVEMENT
-
+        //MOVEMENT CONTROLLER
+        #region Movement Controller;
         if (!isWallJumping)
         {
             mover = Input.GetAxisRaw("Horizontal");
@@ -195,34 +121,125 @@ public class CharacterControl : MonoBehaviour
                 Flip();
             }
         }
+        #endregion
 
-
-
-        //Head Hit Raycast
-        var headHit = Physics2D.Raycast(transform.position, Vector2.up, 0.6f, layersToHit);
-
-        if (headHit.collider && rb.linearVelocityY > 0)
-        {
-            Debug.Log("Something Was Hit");
-            rb.linearVelocityY = -7f;
-            isJumping = false;
-
-        }
-
-
-
+        //AIR INTERPOLANT
+        airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
 
     }
 
 
 
-    //GroudCheck
-
+    //GROUND CHECK
+    #region GroundCheck; // Checks if the player is on the ground.
     public bool isGrounded()
     {
         return Physics2D.OverlapCircle(groundCheck.position, 0.2f, wallLayer);
     }
+    #endregion
 
+    //JUMP CONTROLLER
+    public void JumpController()
+    {
+
+
+        #region Inputs;     //Stores inputs as Vars.
+        var jumpInput = (Input.GetButton("Jump"));
+        var jumpInputDown = (Input.GetButtonDown("Jump"));
+        var jumpInputUp = (Input.GetButtonUp("Jump"));
+        #endregion
+
+
+        // BASIC JUMP
+        #region BasicJump; //Calls inputs to allow for a basic jump.
+        if (jumpInputDown && isGrounded() == true)
+        {
+            isJumping = true;
+            jumpTimeCounter = jumpTime;
+        }
+        if (jumpInput && isJumping == true)
+        {
+            if (jumpTimeCounter > 0)
+            {
+                rb.linearVelocity = Vector2.up * jumpforce;
+                jumpTimeCounter -= Time.deltaTime;
+            }
+            else
+            {
+                isJumping = false;
+            }
+        }
+        if (jumpInputUp)
+        {
+            isJumping = false;
+        }
+        #endregion
+
+
+        // COYOTE TIME
+        #region CoyoteTime;
+        if (isGrounded() == true)
+        {
+            coyoteTimeCounter = coyoteTime;
+        }
+        else
+        {
+            coyoteTimeCounter -= Time.deltaTime;
+        }
+        #endregion
+
+        // JUMP BUFFER
+        #region BufferTime;
+        if (jumpInputDown)
+        {
+            jumpBufferCounter = jumpBufferTime;
+        }
+        else
+        {
+            jumpBufferCounter -= Time.deltaTime;
+        }
+        #endregion
+
+
+        // CT & JB ACTIVATION
+        #region CT/JBActivation;
+        if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
+        {
+            rb.linearVelocity = Vector2.up * jumpforce * missCompensation;
+            jumpBufferCounter = 0f;
+        }
+        if (jumpInput)
+        {
+            coyoteTimeCounter = 0f;
+        }
+        #endregion
+
+
+        //FAST FALLING
+        #region FastFalling; // causes player to fall faster than when they go up when jumping.
+        if (rb.linearVelocity.y < 0)
+        {
+            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMult - 1) * Time.deltaTime;
+        }
+        else if (rb.linearVelocity.y > 0 && jumpBufferCounter < 0f && coyoteTimeCounter < 0f)
+        {
+            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * Time.deltaTime;
+        }
+        #endregion
+
+        //HEAD HIT RAYCAST
+        #region HeadHit; // Shoots a ray above the player's head when jumping to detect if they hit an object above them or not.
+        var headHit = Physics2D.Raycast(transform.position, Vector2.up, 0.6f, layersToHit);
+
+        if (headHit.collider && isJumping) 
+        {
+            Debug.Log("Something Was Hit");
+            rb.linearVelocityY = -7f;
+            isJumping = false;
+        }
+        #endregion
+
+    }
 
 
 
@@ -237,6 +254,7 @@ public class CharacterControl : MonoBehaviour
         rb.linearVelocity = newVelocity;
     }
 
+    //Draws Circle Collider
     private void OnDrawGizmos()
     {
         Gizmos.DrawSphere(wallCheck.position, 0.2f);
@@ -264,8 +282,6 @@ public class CharacterControl : MonoBehaviour
 
     public void wallGrab(Vector2 direction)
     {
-
-
 
         if (isWalled() && Input.GetKey(KeyCode.RightShift))
         {
@@ -361,7 +377,7 @@ public class CharacterControl : MonoBehaviour
         isWallJumping = false;
     }
 
-    //Original Flip
+
     public void Flip()
     {
         Vector3 currentScale = gameObject.transform.localScale;
