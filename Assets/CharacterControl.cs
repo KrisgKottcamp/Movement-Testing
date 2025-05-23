@@ -4,20 +4,23 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.InputSystem;
+using Unity.Cinemachine;
 
 
 public class CharacterControl : MonoBehaviour
-{
-    
+{ 
+
 
     #region Movement Settings
 
     [Header("Components")]
-    [SerializeField] private Rigidbody2D rb;
+    private Rigidbody2D rb;
+    private PlayerControls playercontrols;
     [SerializeField] private Transform wallCheck;
     [SerializeField] private LayerMask wallLayer;
     [SerializeField] private Transform groundCheck;
     [SerializeField] public LayerMask layersToHit;
+
 
     [Header("Jump Settings")]
     [SerializeField] private float jumpforce;
@@ -25,7 +28,7 @@ public class CharacterControl : MonoBehaviour
     private float jumpTimeCounter;
     [SerializeField] private float jumpTime;
     private bool isJumping;
-    
+
 
     [Header("Coyote & Buffer")]
     private float coyoteTime = 0.13f;
@@ -39,7 +42,7 @@ public class CharacterControl : MonoBehaviour
     public float moveSpeed;
     public bool facingRight = true;
 
-  
+
 
     #endregion
 
@@ -71,11 +74,13 @@ public class CharacterControl : MonoBehaviour
     #region Dash Settings
 
     [Header("Dash")]
+    [SerializeField] bool dashInput;
     public float dashingSpeed;
     public float dashingTime;
     private Vector2 dashingDir;
     public bool isDashing;
     private bool canDash = true;
+    private CinemachineImpulseSource impulseSource;
     #endregion
 
 
@@ -86,25 +91,37 @@ public class CharacterControl : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-
+        playercontrols = new PlayerControls();
+        impulseSource = GetComponent<CinemachineImpulseSource>();
     }
 
     // Update is called once per frame
     void Update()
     {
-
+        
         WallSlide();
         WallJump();
-        Dashing();
         JumpController();
+        Dashing();
 
 
+        //AIR INTERPOLANT
+        airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
+    }
+
+    private void FixedUpdate()
+    {
+        MovementController();
+    }
+
+    private void MovementController()
+    {
         //MOVEMENT CONTROLLER
-        #region Movement Controller;
+    
         if (!isWallJumping)
         {
-            mover = Input.GetAxisRaw("Horizontal");
-            wallMover = Input.GetAxisRaw("Vertical");
+            mover = (Input.GetAxisRaw("Horizontal"));
+            wallMover = (Input.GetAxisRaw("Vertical"));
             Vector2 direction = new Vector2(mover, wallMover);
 
             Walk(direction);
@@ -121,11 +138,7 @@ public class CharacterControl : MonoBehaviour
                 Flip();
             }
         }
-        #endregion
-
-        //AIR INTERPOLANT
-        airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
-
+       
     }
 
 
@@ -231,7 +244,7 @@ public class CharacterControl : MonoBehaviour
         #region HeadHit; // Shoots a ray above the player's head when jumping to detect if they hit an object above them or not.
         var headHit = Physics2D.Raycast(transform.position, Vector2.up, 0.6f, layersToHit);
 
-        if (headHit.collider && isJumping) 
+        if (headHit.collider && isJumping)
         {
             Debug.Log("Something Was Hit");
             rb.linearVelocityY = -7f;
@@ -257,7 +270,7 @@ public class CharacterControl : MonoBehaviour
     //Draws Circle Collider
     private void OnDrawGizmos()
     {
-        Gizmos.DrawSphere(wallCheck.position, 0.2f);
+        Gizmos.DrawSphere(wallCheck.position, 0.5f);
     }
     public bool isWalled()
     {
@@ -388,12 +401,20 @@ public class CharacterControl : MonoBehaviour
     }
 
 
+    private void OnDash()
+    {
+        dashInput = true;
+    }
+
+
     private void Dashing()
     {
-        var dashInput = Input.GetButtonDown("Dash");
-
+        
+       
         if (dashInput && canDash)
         {
+            CameraShakeManager.instance.CameraShake(impulseSource);
+            Debug.Log("Dash");
             isDashing = true;
             canDash = false;
             dashingDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
@@ -409,16 +430,27 @@ public class CharacterControl : MonoBehaviour
 
         if (isDashing)
         {
+            
             rb.linearVelocity = dashingDir.normalized * dashingSpeed;
             rb.gravityScale = 0;
-            airInterpolant = 0f;
+            airInterpolant = .5f;
+            dashInput = false;
             return;
+
 
         }
         if (isGrounded())
         {
             canDash = true;
             rb.gravityScale = 5;
+            
+        }
+
+        if (!canDash && Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer))
+        {
+
+            StopDashing();
+ 
         }
     }
 
