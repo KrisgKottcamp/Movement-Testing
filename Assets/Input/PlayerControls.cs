@@ -35,6 +35,24 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""MovementController"",
+                    ""type"": ""Value"",
+                    ""id"": ""285e11ba-441e-4379-92b0-c61ea7846857"",
+                    ""expectedControlType"": ""Stick"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""MeleeAttack"",
+                    ""type"": ""Button"",
+                    ""id"": ""77546f8b-fd12-4045-84a8-46d3eee6afaf"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -92,6 +110,28 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""action"": ""Dash"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""78f7592d-d469-4f5a-bbd3-efd968aac26c"",
+                    ""path"": ""<Gamepad>/leftStick"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""MovementController"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ac2c2360-8bf9-43e2-9ef1-85e81d1cc19c"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""MeleeAttack"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -101,6 +141,8 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         // BasicGameplay
         m_BasicGameplay = asset.FindActionMap("BasicGameplay", throwIfNotFound: true);
         m_BasicGameplay_Dash = m_BasicGameplay.FindAction("Dash", throwIfNotFound: true);
+        m_BasicGameplay_MovementController = m_BasicGameplay.FindAction("MovementController", throwIfNotFound: true);
+        m_BasicGameplay_MeleeAttack = m_BasicGameplay.FindAction("MeleeAttack", throwIfNotFound: true);
     }
 
     ~@PlayerControls()
@@ -168,11 +210,15 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
     private readonly InputActionMap m_BasicGameplay;
     private List<IBasicGameplayActions> m_BasicGameplayActionsCallbackInterfaces = new List<IBasicGameplayActions>();
     private readonly InputAction m_BasicGameplay_Dash;
+    private readonly InputAction m_BasicGameplay_MovementController;
+    private readonly InputAction m_BasicGameplay_MeleeAttack;
     public struct BasicGameplayActions
     {
         private @PlayerControls m_Wrapper;
         public BasicGameplayActions(@PlayerControls wrapper) { m_Wrapper = wrapper; }
         public InputAction @Dash => m_Wrapper.m_BasicGameplay_Dash;
+        public InputAction @MovementController => m_Wrapper.m_BasicGameplay_MovementController;
+        public InputAction @MeleeAttack => m_Wrapper.m_BasicGameplay_MeleeAttack;
         public InputActionMap Get() { return m_Wrapper.m_BasicGameplay; }
         public void Enable() { Get().Enable(); }
         public void Disable() { Get().Disable(); }
@@ -185,6 +231,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @Dash.started += instance.OnDash;
             @Dash.performed += instance.OnDash;
             @Dash.canceled += instance.OnDash;
+            @MovementController.started += instance.OnMovementController;
+            @MovementController.performed += instance.OnMovementController;
+            @MovementController.canceled += instance.OnMovementController;
+            @MeleeAttack.started += instance.OnMeleeAttack;
+            @MeleeAttack.performed += instance.OnMeleeAttack;
+            @MeleeAttack.canceled += instance.OnMeleeAttack;
         }
 
         private void UnregisterCallbacks(IBasicGameplayActions instance)
@@ -192,6 +244,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @Dash.started -= instance.OnDash;
             @Dash.performed -= instance.OnDash;
             @Dash.canceled -= instance.OnDash;
+            @MovementController.started -= instance.OnMovementController;
+            @MovementController.performed -= instance.OnMovementController;
+            @MovementController.canceled -= instance.OnMovementController;
+            @MeleeAttack.started -= instance.OnMeleeAttack;
+            @MeleeAttack.performed -= instance.OnMeleeAttack;
+            @MeleeAttack.canceled -= instance.OnMeleeAttack;
         }
 
         public void RemoveCallbacks(IBasicGameplayActions instance)
@@ -212,5 +270,7 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
     public interface IBasicGameplayActions
     {
         void OnDash(InputAction.CallbackContext context);
+        void OnMovementController(InputAction.CallbackContext context);
+        void OnMeleeAttack(InputAction.CallbackContext context);
     }
 }

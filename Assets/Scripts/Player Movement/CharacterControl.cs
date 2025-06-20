@@ -28,6 +28,9 @@ public class CharacterControl : MonoBehaviour
     private float jumpTimeCounter;
     [SerializeField] private float jumpTime;
     private bool isJumping;
+    [SerializeField] private float gravforce;
+    [SerializeField] private float raycastDistance;
+    public bool isGrounded = true;
 
 
     [Header("Coyote & Buffer")]
@@ -77,13 +80,13 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] bool dashInput;
     public float dashingSpeed;
     public float dashingTime;
-    private Vector2 dashingDir;
+    public Vector2 dashingDir;
     public bool isDashing;
     private bool canDash = true;
     private CinemachineImpulseSource impulseSource;
     #endregion
 
-
+ 
 
 
 
@@ -143,13 +146,7 @@ public class CharacterControl : MonoBehaviour
 
 
 
-    //GROUND CHECK
-    #region GroundCheck; // Checks if the player is on the ground.
-    public bool isGrounded()
-    {
-        return Physics2D.OverlapCircle(groundCheck.position, 0.2f, wallLayer);
-    }
-    #endregion
+
 
     //JUMP CONTROLLER
     public void JumpController()
@@ -161,11 +158,17 @@ public class CharacterControl : MonoBehaviour
         var jumpInputDown = (Input.GetButtonDown("Jump"));
         var jumpInputUp = (Input.GetButtonUp("Jump"));
         #endregion
+        if (Physics2D.OverlapCircle(groundCheck.position, 0.2f, wallLayer)) { 
+            isGrounded = true; 
+        } else
+        {
+            isGrounded = false;
+        }
 
 
         // BASIC JUMP
         #region BasicJump; //Calls inputs to allow for a basic jump.
-        if (jumpInputDown && isGrounded() == true)
+        if (jumpInputDown && isGrounded == true)
         {
             isJumping = true;
             jumpTimeCounter = jumpTime;
@@ -191,7 +194,7 @@ public class CharacterControl : MonoBehaviour
 
         // COYOTE TIME
         #region CoyoteTime;
-        if (isGrounded() == true)
+        if (isGrounded == true)
         {
             coyoteTimeCounter = coyoteTime;
         }
@@ -242,7 +245,7 @@ public class CharacterControl : MonoBehaviour
 
         //HEAD HIT RAYCAST
         #region HeadHit; // Shoots a ray above the player's head when jumping to detect if they hit an object above them or not.
-        var headHit = Physics2D.Raycast(transform.position, Vector2.up, .5f, layersToHit);
+        var headHit = Physics2D.Raycast(transform.position, Vector2.up, raycastDistance, layersToHit);
 
         if (headHit.collider && isJumping)
         {
@@ -270,11 +273,11 @@ public class CharacterControl : MonoBehaviour
     //Draws Circle Collider
     private void OnDrawGizmos()
     {
-        Gizmos.DrawSphere(wallCheck.position, 0.8f);
+        Gizmos.DrawSphere(wallCheck.position, .9f);
     }
     public bool isWalled()
     {
-        return Physics2D.OverlapCircle(wallCheck.position, 0.8f, wallLayer);
+        return Physics2D.OverlapCircle(wallCheck.position, .9f, wallLayer);
     }
 
     private void WallSlide()
@@ -314,7 +317,7 @@ public class CharacterControl : MonoBehaviour
             }
 
         }
-        else { rb.gravityScale = 5; }
+        else { rb.gravityScale = gravforce; }
 
         if (isWallGrabbing && Input.GetButton("Jump"))
         {
@@ -333,7 +336,7 @@ public class CharacterControl : MonoBehaviour
 
     private void WallJump()
     {
-        if (isWalled() && !isGrounded() && mover != 0)
+        if (isWalled() && !isGrounded && mover != 0)
         {
             isWallJumping = false;
             isWallGrabbing = false;
@@ -375,7 +378,7 @@ public class CharacterControl : MonoBehaviour
             isWallJumping = false;
         }
 
-        if (isGrounded() == true)
+        if (isGrounded == true)
         {
             airInterpolant = 1;
             wallJumpingCounter = wallJumpingTime;
@@ -417,8 +420,9 @@ public class CharacterControl : MonoBehaviour
             Debug.Log("Dash");
             isDashing = true;
             canDash = false;
-            dashingDir = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+            dashingDir = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized;
 
+            //If the player is not moving, the dash direction defaults to forward.
             if (dashingDir == Vector2.zero)
             {
                 dashingDir = new Vector2(transform.localScale.x, 0);
@@ -439,10 +443,10 @@ public class CharacterControl : MonoBehaviour
 
 
         }
-        if (isGrounded())
+        if (isGrounded)
         {
             canDash = true;
-            rb.gravityScale = 5;
+            rb.gravityScale = gravforce;
             
         }
 
