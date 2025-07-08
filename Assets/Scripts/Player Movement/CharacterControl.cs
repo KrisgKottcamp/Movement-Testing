@@ -105,7 +105,7 @@ public class CharacterControl : MonoBehaviour
         WallSlide();
         WallJump();
         JumpController();
-        Dashing();
+        
 
 
         //AIR INTERPOLANT
@@ -114,12 +114,16 @@ public class CharacterControl : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (isPogoBouncing)
+            return;
+
         MovementController();
+        Dashing();
     }
 
     private void MovementController()
     {
-        if (isPogoBouncing) { return; }
+   
         //MOVEMENT CONTROLLER
     
         if (!isWallJumping)
@@ -471,7 +475,12 @@ public class CharacterControl : MonoBehaviour
     public bool isPogoBouncing = false;
     public void ApplyPogoForce(Vector2 force)
     {
+        rb.gravityScale = gravforce;
+        // 1) reset any vertical speed so every bounce starts from zero
+        rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
+        // 2) apply the �gpogo�h as an instantaneous impulse
         rb.AddForce(force, ForceMode2D.Impulse);
+
     }
 
 }
