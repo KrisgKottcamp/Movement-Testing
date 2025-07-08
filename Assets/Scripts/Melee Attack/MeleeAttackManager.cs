@@ -7,9 +7,9 @@ public class MeleeAttackManager : MonoBehaviour
     //How much movement force should be applied to the player DOWNWARD or HORIZONTALLY when a melee attack collides with a GameObject.
     public float defaultForce = 30f;
     //How much movement force should be applied to the player UPWARD when a melee attack collides with a GameObject with a downward strike attack.
-    public float upwardsForce = 60f;
+    public float upwardsForce = 0f;
     //How long the player should move when the melee attack collides with a GameObject with an EnemyHealth script attached.
-    public float attackMovementTime = .1f;
+    public float attackMovementTime = 1f;
     //Receives input from Unity Input System
     private bool meleeAttackInput;
     //Just checks to see if an input is being pressed for a melee attack.
@@ -46,7 +46,7 @@ public class MeleeAttackManager : MonoBehaviour
         );
 
         // Define a small threshold to ignore tiny stick movements (joystick drift)
-        const float deadZone = 0.3f;
+        const float deadZone = 0.2f;
         // If the stick’s overall tilt is less than the dead zone...
         if (raw.magnitude < deadZone)
         {
@@ -55,7 +55,7 @@ public class MeleeAttackManager : MonoBehaviour
         else
         {
             // When one axis is much stronger than the other, we snap to cardinal
-            const float cardinalThreshold = 1.5f;
+            const float cardinalThreshold = 1.9f;
             float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y); // absolute X and Y for comparison
 
             Vector2 dir; // will hold our snapped direction
@@ -86,6 +86,7 @@ public class MeleeAttackManager : MonoBehaviour
                 anim.SetTrigger("UpwardMelee");          // trigger character animation
                 meleeAnimator.SetTrigger("UpwardMeleeSwipe"); // trigger swipe VFX
                 meleeAttackInput = false;                // clear the input flag
+
                 break;
 
             case var d when d == new Vector2(0, -1)
@@ -96,8 +97,7 @@ public class MeleeAttackManager : MonoBehaviour
                 meleeAttackInput = false;
                 break;
 
-            case var d when d == Vector2.zero
-                          || (d.x != 0 && d.y == 0) || (d.x != 0 && characterControl.isGrounded && d.y == 0): // forward on ground or no dir
+            case var d when  (characterControl.isGrounded && d.y == 0): // forward on ground or no dir
                 Debug.Log("Standard Attack!");
                 anim.SetTrigger("ForwardMelee");
                 meleeAnimator.SetTrigger("ForwardMeleeSwipe");
@@ -114,21 +114,6 @@ public class MeleeAttackManager : MonoBehaviour
             case var d when d == new Vector2(1, -1)
                            && !characterControl.isGrounded: // down‐right diagonal in air
                 Debug.Log("Down-Right Diagonal!");
-                anim.SetTrigger("DownwardDiagonalMelee");
-                meleeAnimator.SetTrigger("DownwardDiagonalMeleeSwipe");
-                meleeAttackInput = false;
-                break;
-
-            case var d when d == new Vector2(-1, 1):   // up‐left diagonal
-                Debug.Log("Up-Left Diagonal!");
-                anim.SetTrigger("UpwardDiagonalMelee");
-                meleeAnimator.SetTrigger("UpwardDiagonalMeleeSwipe");
-                meleeAttackInput = false;
-                break;
-
-            case var d when d == new Vector2(-1, -1)
-                           && !characterControl.isGrounded: // down‐left diagonal in air
-                Debug.Log("Down-Left Diagonal!");
                 anim.SetTrigger("DownwardDiagonalMelee");
                 meleeAnimator.SetTrigger("DownwardDiagonalMeleeSwipe");
                 meleeAttackInput = false;

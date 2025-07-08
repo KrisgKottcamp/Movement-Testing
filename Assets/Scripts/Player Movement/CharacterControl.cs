@@ -14,7 +14,7 @@ public class CharacterControl : MonoBehaviour
     #region Movement Settings
 
     [Header("Components")]
-    private Rigidbody2D rb;
+    public Rigidbody2D rb;
     private PlayerControls playercontrols;
     [SerializeField] private Transform wallCheck;
     [SerializeField] private LayerMask wallLayer;
@@ -119,6 +119,7 @@ public class CharacterControl : MonoBehaviour
 
     private void MovementController()
     {
+        if (isPogoBouncing) { return; }
         //MOVEMENT CONTROLLER
     
         if (!isWallJumping)
@@ -128,7 +129,7 @@ public class CharacterControl : MonoBehaviour
             Vector2 direction = new Vector2(mover, wallMover);
 
             Walk(direction);
-            wallGrab(direction);
+            //wallGrab(direction);
 
 
             if (mover > 0f && !facingRight)
@@ -463,7 +464,14 @@ public class CharacterControl : MonoBehaviour
         yield return new WaitForSeconds(dashingTime);
         isDashing = false;
         rb.linearVelocity *= 0f;
+        rb.gravityScale = 8f;
 
+    }
+    [SerializeField]
+    public bool isPogoBouncing = false;
+    public void ApplyPogoForce(Vector2 force)
+    {
+        rb.AddForce(force, ForceMode2D.Impulse);
     }
 
 }

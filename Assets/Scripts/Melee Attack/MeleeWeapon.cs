@@ -1,109 +1,73 @@
 using System.Collections;
 using UnityEngine;
 
+[RequireComponent(typeof(Animator))]
 public class MeleeWeapon : MonoBehaviour
 {
-    //How much damage the attack does.
+    [Header("Damage & Pogo Settings")]
     [SerializeField] private int damageAmount = 20;
+    [SerializeField] private float attackCooldown = 0.2f;         // Time before next pogo
+    [SerializeField] private float pogoForce = 12f;          // Upward bounce strength
+    [SerializeField] private Vector2 hitboxSize = new Vector2(1f, 0.25f);   // Width x Height
+    [SerializeField] private Vector2 hitboxOffset = new Vector2(0f, -0.5f);   // Local space offset
+    [SerializeField] private LayerMask enemyLayer;                    // Layer mask for enemies
 
-    //References the main player movement script.
     private CharacterControl characterControl;
-
-    //References the RigitBody2D on the player.
-    private Rigidbody2D rb;
-
-    //References the MeleeAttackManager script on the player.
     private MeleeAttackManager meleeAttackManager;
+    private bool hasAttackedThisSwing = false;
+    private Coroutine cooldownCoroutine;
 
-    //References the direction the player needs to move in after a melee attack collides.
-    private Vector2 direction;
-
-    //Bool that determines if a player should move after a melee attack collides.
-    private bool hasCollided;
-
-    //Determines if the melee strike is downwards to apply upward force against gravity.
-    private bool downwardStrike;
-
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    private void Awake()
     {
-        //references components
-        characterControl = GetComponent<CharacterControl>();
-        rb = GetComponent<Rigidbody2D>();
-        meleeAttackManager = GetComponent<MeleeAttackManager>();
+        characterControl = GetComponentInParent<CharacterControl>();
+        meleeAttackManager = GetComponentInParent<MeleeAttackManager>();
     }
 
-    private void FixedUpdate()
-    {
-        HandleMovement();
-    }
 
-    private void OnTriggerEnter2D(Collider2D collision)
+    public void PerformAttack()
     {
-        if (collision.GetComponent<EnemyHealth>()) //Checks to see if the GameObject the MeleeWeapon is colliding with has an EnemyHealth script attached to it.
+        // Only allow pogo when airborne and input is downward
+        if (characterControl.isGrounded)
+            return;
+        if (meleeAttackManager.meleeAttackDir.y >= 0f)
+            return;
+
+        // Calculate world-space origin of the hitbox (handles flipping)
+        Vector2 origin = (Vector2)transform.TransformPoint(hitboxOffset);
+
+        // Find all colliders overlapping the box
+        Collider2D[] hits = Physics2D.OverlapBoxAll(origin, hitboxSize, 2f, enemyLayer);
+        foreach (var col in hits)
         {
-            HandleCollision(collision.GetComponent<EnemyHealth>());
-        } 
+            
+            // Find the EnemyHealth component on this collider or its parents
+            EnemyHealth enemy = col.GetComponentInParent<EnemyHealth>();
+            if (enemy == null || !enemy.giveUpwardForce || hasAttackedThisSwing)
+                continue;
+
+            // Damage the enemy and apply pogo
+            enemy.Damage(damageAmount);
+            characterControl.ApplyPogoForce(Vector2.up * pogoForce);
+            hasAttackedThisSwing = true;
+
+            // Start cooldown to allow next pogo
+            if (cooldownCoroutine != null) StopCoroutine(cooldownCoroutine);
+            cooldownCoroutine = StartCoroutine(ResetAttack());
+            break;
+        }
     }
 
-    private void HandleCollision(EnemyHealth objHealth)
+    private IEnumerator ResetAttack()
     {
-
-        //THIS STUFF CONTROLLS WHAT HAPPENS WHEN THE PLAYER ATTACKS FROM EACH DIRRECTION.
-        if (objHealth.giveUpwardForce && Input.GetAxis("Vertical") < 0 && !characterControl.isGrounded) {
-            direction = Vector2.up; //Sets the direction to up.
-            downwardStrike = true; //Sets downwardStrike to true;
-            hasCollided = true; //The attack has now collided.
-        }
-        if (Input.GetAxis("Vertical") > 0 && !characterControl.isGrounded) //If the player is below an enemy and attacks them, this will push them back down.
-                                                                           //(This will need to change in the future to allow for 3 hit combo.)
-        {
-            direction = Vector2.down; //Sets the direction to down.
-            hasCollided = true;//The attack has now collided.
-        }
-        //Checks to see if melee attack is just a standard melee attack.
-        if ((Input.GetAxis("vertical") <= 0 || Input.GetAxis("Vertical") == 0)) {
-            if (characterControl.facingRight)
-            {
-                direction = Vector2.right; //When the player attacks right, sets the direction to right
-            }
-            else {
-                direction = Vector2.left; //When the player attacks left, sets the direction to left
-            }
-            hasCollided = true;
-        }
-
-        //Deals (damageAmount) amount of damage.
-        objHealth.Damage(damageAmount);
-        StartCoroutine(NoLongerColliding());
+        yield return new WaitForSeconds(attackCooldown);
+        hasAttackedThisSwing = false;
     }
 
-    //Coroutine that turns off all the bools related to melee attack collision and direction.
-    private IEnumerator NoLongerColliding()
+    private void OnDrawGizmosSelected()
     {
-        //Waits for (attackMovementTime) amount of time, set up in the melleAttackManager script, to pass.
-        yield return new WaitForSeconds(meleeAttackManager.attackMovementTime);
-        hasCollided = false; //Resets hasCollided.
-        downwardStrike = false; //Resets downwardStrike;
+        // Draws box for tuning
+        Gizmos.color = Color.red;
+        Vector3 origin = transform.TransformPoint(hitboxOffset);
+        Gizmos.DrawWireCube(origin, hitboxSize);
     }
-
-
-    //Method that actually applies the movement from a melee attack in the appropriate direction. 
-    private void HandleMovement()
-    {
-        //Will only run if the attack has collided.
-        if (hasCollided)
-        {
-            //if the attack was in a downward direction
-            if (downwardStrike)
-            {
-                rb.AddForce(direction * meleeAttackManager.upwardsForce); //Propels the player upwards by the amount of upwardsForce in the meleeAttackManager
-            }
-            else
-            {
-                rb.AddForce(direction * meleeAttackManager.defaultForce); //Propels the player upwards by the amount of defaultForce in the meleeAttackManager
-            }
-        }
-    }
-
 }

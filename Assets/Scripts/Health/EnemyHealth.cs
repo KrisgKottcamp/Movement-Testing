@@ -14,7 +14,7 @@ public class EnemyHealth : MonoBehaviour
 
     private bool hit; //Bool that manages if the enemy can receive more damage.
 
-    private int currentHealth; //The current amount of health this game object has after receiving damage.
+    public int currentHealth; //The current amount of health this game object has after receiving damage.
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
