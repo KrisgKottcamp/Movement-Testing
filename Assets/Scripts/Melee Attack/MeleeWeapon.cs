@@ -4,10 +4,14 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public class MeleeWeapon : MonoBehaviour
 {
-    [Header("Damage & Pogo Settings")]
+    [Header("Damage Settings")]
     [SerializeField] private int damageAmount = 20;
+    [SerializeField] private int bruiseDamageAmount = 20;
     [SerializeField] private float attackCooldown = 0.2f;         // Time before next pogo
+
+    [Header("Bounce Settings")]
     [SerializeField] private float pogoForce = 12f;          // Upward bounce strength
+    [SerializeField] private float bounceBackForce = 5f;          // Backwards bounce strength
     [SerializeField] private Vector2 hitboxSize = new Vector2(1f, 0.25f);   // Width x Height
     [SerializeField] private Vector2 hitboxOffset = new Vector2(0f, -0.5f);   // Local space offset
     [SerializeField] private LayerMask enemyLayer;                    // Layer mask for enemies
@@ -26,34 +30,42 @@ public class MeleeWeapon : MonoBehaviour
 
     public void PerformAttack()
     {
-        // Only allow pogo when airborne and input is downward
-        if (characterControl.isGrounded)
-            return;
-        if (meleeAttackManager.meleeAttackDir.y >= 0f)
-            return;
 
-        // Calculate world-space origin of the hitbox (handles flipping)
-        Vector2 origin = (Vector2)transform.TransformPoint(hitboxOffset);
+        Vector2 origin = (Vector2)transform.position + hitboxOffset;
+        Collider2D[] hits = Physics2D.OverlapBoxAll(origin, hitboxSize, 0f, enemyLayer);
 
-        // Find all colliders overlapping the box
-        Collider2D[] hits = Physics2D.OverlapBoxAll(origin, hitboxSize, 2f, enemyLayer);
         foreach (var col in hits)
         {
-            
-            // Find the EnemyHealth component on this collider or its parents
-            EnemyHealth enemy = col.GetComponentInParent<EnemyHealth>();
-            if (enemy == null || !enemy.giveUpwardForce || hasAttackedThisSwing)
+            var enemy = col.GetComponentInParent<EnemyHealth>();
+            if (enemy == null || hasAttackedThisSwing)
                 continue;
 
-            // Damage the enemy and apply pogo
-            enemy.Damage(damageAmount);
-            characterControl.ApplyPogoForce(Vector2.up * pogoForce);
-            hasAttackedThisSwing = true;
+            // 1) Always apply both health and bruise damage:
+            Vector2 hitDir = meleeAttackManager.raw.normalized;
+            enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
 
-            // Start cooldown to allow next pogo
+
+            bool didPogo = enemy.giveUpwardForce && !characterControl.isGrounded && meleeAttackManager.meleeAttackDir.y <= 0f && meleeAttackManager.meleeAttackDir.x == 0f;
+
+            // 2) Only do the pogo if this enemy is pogoable:
+            if (didPogo)
+            {
+                Debug.Log("Did Pogo!");
+                characterControl.ApplyPogoForce(Vector2.up * pogoForce);
+            }
+            else
+            {
+                // bounce the player *away* from the enemy  
+                // (hitDir points TOWARD the enemy, so invert it)
+                Vector2 bounceDir = -hitDir;
+                characterControl.ApplyBounceBackForce(bounceDir * bounceBackForce);
+            }
+            hasAttackedThisSwing = true;
             if (cooldownCoroutine != null) StopCoroutine(cooldownCoroutine);
             cooldownCoroutine = StartCoroutine(ResetAttack());
             break;
+            
+
         }
     }
 
@@ -67,7 +79,8 @@ public class MeleeWeapon : MonoBehaviour
     {
         // Draws box for tuning
         Gizmos.color = Color.red;
-        Vector3 origin = transform.TransformPoint(hitboxOffset);
+
+        Vector2 origin = (Vector2)transform.position + hitboxOffset;
         Gizmos.DrawWireCube(origin, hitboxSize);
     }
 }

@@ -8,7 +8,7 @@ using Unity.Cinemachine;
 
 
 public class CharacterControl : MonoBehaviour
-{ 
+{
 
 
     #region Movement Settings
@@ -86,7 +86,7 @@ public class CharacterControl : MonoBehaviour
     private CinemachineImpulseSource impulseSource;
     #endregion
 
- 
+
 
 
 
@@ -101,11 +101,11 @@ public class CharacterControl : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+
         WallSlide();
         WallJump();
         JumpController();
-        
+
 
 
         //AIR INTERPOLANT
@@ -123,9 +123,9 @@ public class CharacterControl : MonoBehaviour
 
     private void MovementController()
     {
-   
+
         //MOVEMENT CONTROLLER
-    
+
         if (!isWallJumping)
         {
             mover = (Input.GetAxisRaw("Horizontal"));
@@ -146,7 +146,7 @@ public class CharacterControl : MonoBehaviour
                 Flip();
             }
         }
-       
+
     }
 
 
@@ -163,9 +163,11 @@ public class CharacterControl : MonoBehaviour
         var jumpInputDown = (Input.GetButtonDown("Jump"));
         var jumpInputUp = (Input.GetButtonUp("Jump"));
         #endregion
-        if (Physics2D.OverlapCircle(groundCheck.position, 0.2f, wallLayer)) { 
-            isGrounded = true; 
-        } else
+        if (Physics2D.OverlapCircle(groundCheck.position, 0.2f, wallLayer))
+        {
+            isGrounded = true;
+        }
+        else
         {
             isGrounded = false;
         }
@@ -417,8 +419,8 @@ public class CharacterControl : MonoBehaviour
 
     private void Dashing()
     {
-        
-       
+
+
         if (dashInput && canDash)
         {
             CameraShakeManager.instance.CameraShake(impulseSource);
@@ -439,27 +441,24 @@ public class CharacterControl : MonoBehaviour
 
         if (isDashing)
         {
-            
+
             rb.linearVelocity = dashingDir.normalized * dashingSpeed;
             rb.gravityScale = 0;
             airInterpolant = .5f;
             dashInput = false;
             return;
-
-
         }
         if (isGrounded)
         {
             canDash = true;
             rb.gravityScale = gravforce;
-            
-        }
+ }
 
         if (!canDash && Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer))
         {
 
             StopDashing();
- 
+
         }
     }
 
@@ -481,6 +480,15 @@ public class CharacterControl : MonoBehaviour
         // 2) apply the �gpogo�h as an instantaneous impulse
         rb.AddForce(force, ForceMode2D.Impulse);
 
+    }
+
+    public void ApplyBounceBackForce(Vector2 force)
+    {
+        Debug.Log("Bounce Back!");
+        // stop any existing horizontal momentum
+        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        // then impulse in the given direction
+        rb.AddForce(force, ForceMode2D.Impulse);
     }
 
 }

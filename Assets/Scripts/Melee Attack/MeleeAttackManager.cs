@@ -23,6 +23,9 @@ public class MeleeAttackManager : MonoBehaviour
     //The CharacterControl script on the player; pulled to access the grounded state.
     private CharacterControl characterControl;
 
+    public Vector2 raw;
+
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     private void Start()
     {
@@ -40,10 +43,11 @@ public class MeleeAttackManager : MonoBehaviour
     private void CheckInput() // Main method to handle melee input and execute corresponding attacks
     {
         // Read raw stick input without Unity’s smoothing
-        Vector2 raw = new Vector2(
-            Input.GetAxisRaw("Horizontal"), // Raw horizontal axis value (-1 to 1)
-            Input.GetAxisRaw("Vertical")    // Raw vertical axis value (-1 to 1)
-        );
+
+        float x = Input.GetAxisRaw("Horizontal"); // Raw horizontal axis value (-1 to 1)
+        float y = Input.GetAxisRaw("Vertical");    // Raw vertical axis value (-1 to 1)
+
+        raw = new Vector2(x, y);
 
         // Define a small threshold to ignore tiny stick movements (joystick drift)
         const float deadZone = 0.2f;
@@ -55,7 +59,7 @@ public class MeleeAttackManager : MonoBehaviour
         else
         {
             // When one axis is much stronger than the other, we snap to cardinal
-            const float cardinalThreshold = 1.9f;
+            const float cardinalThreshold = 2.3f;
             float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y); // absolute X and Y for comparison
 
             Vector2 dir; // will hold our snapped direction
@@ -82,7 +86,6 @@ public class MeleeAttackManager : MonoBehaviour
         switch (meleeAttackDir)
         {
             case var d when d == new Vector2(0, 1):   // straight up
-                Debug.Log("Upward Attack!");             // log for debugging
                 anim.SetTrigger("UpwardMelee");          // trigger character animation
                 meleeAnimator.SetTrigger("UpwardMeleeSwipe"); // trigger swipe VFX
                 meleeAttackInput = false;                // clear the input flag
@@ -91,21 +94,18 @@ public class MeleeAttackManager : MonoBehaviour
 
             case var d when d == new Vector2(0, -1)
                            && !characterControl.isGrounded:  // straight down in air
-                Debug.Log("Downward Attack!");
                 anim.SetTrigger("DownwardMelee");
                 meleeAnimator.SetTrigger("DownwardMeleeSwipe");
                 meleeAttackInput = false;
                 break;
 
-            case var d when  (characterControl.isGrounded && d.y == 0): // forward on ground or no dir
-                Debug.Log("Standard Attack!");
+            case var d when (d.y == 0): // forward on ground or no dir
                 anim.SetTrigger("ForwardMelee");
                 meleeAnimator.SetTrigger("ForwardMeleeSwipe");
                 meleeAttackInput = false;
                 break;
 
             case var d when d == new Vector2(1, 1):   // up‐right diagonal
-                Debug.Log("Up-Right Diagonal!");
                 anim.SetTrigger("UpwardDiagonalMelee");
                 meleeAnimator.SetTrigger("UpwardDiagonalMeleeSwipe");
                 meleeAttackInput = false;
@@ -113,7 +113,19 @@ public class MeleeAttackManager : MonoBehaviour
 
             case var d when d == new Vector2(1, -1)
                            && !characterControl.isGrounded: // down‐right diagonal in air
-                Debug.Log("Down-Right Diagonal!");
+                anim.SetTrigger("DownwardDiagonalMelee");
+                meleeAnimator.SetTrigger("DownwardDiagonalMeleeSwipe");
+                meleeAttackInput = false;
+                break;
+
+            case var d when d == new Vector2(-1, 1):   // up‐left diagonal
+                anim.SetTrigger("UpwardDiagonalMelee");
+                meleeAnimator.SetTrigger("UpwardDiagonalMeleeSwipe");
+                meleeAttackInput = false;
+                break;
+
+            case var d when d == new Vector2(-1, -1)
+                           && !characterControl.isGrounded: // down‐left diagonal in air
                 anim.SetTrigger("DownwardDiagonalMelee");
                 meleeAnimator.SetTrigger("DownwardDiagonalMeleeSwipe");
                 meleeAttackInput = false;
