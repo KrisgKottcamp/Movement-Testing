@@ -86,9 +86,12 @@ public class CharacterControl : MonoBehaviour
     private CinemachineImpulseSource impulseSource;
     #endregion
 
+    [Header("Bounce-Back (for attack swing)")]
+    [SerializeField]
+    public float bounceBackLerpTime = 0.2f;
 
-
-
+    private MeleeWeapon MeleeWeapon;
+    
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -408,6 +411,7 @@ public class CharacterControl : MonoBehaviour
         gameObject.transform.localScale = currentScale;
 
         facingRight = !facingRight;
+        MeleeWeapon.hitboxOffset.x *=-1;
     }
 
 
@@ -489,6 +493,28 @@ public class CharacterControl : MonoBehaviour
         rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
         // then impulse in the given direction
         rb.AddForce(force, ForceMode2D.Impulse);
+
+        // restart LERP coroutine so control returns smoothly
+;
+        StartCoroutine(nameof(BounceBackRoutine));
+    }
+
+    private IEnumerator BounceBackRoutine()
+    {
+        float elapsed = 0f;
+        // start with zero input influence
+        airInterpolant = 0f;
+
+        while (elapsed < bounceBackLerpTime)
+        {
+            elapsed += Time.deltaTime;
+            // ramp airInterpolant from 0 → 1 over bounceBackLerpTime
+            airInterpolant = Mathf.Clamp01(elapsed / bounceBackLerpTime);
+            yield return null;
+        }
+
+        // ensure full control at the end
+        airInterpolant = 1f;
     }
 
 }

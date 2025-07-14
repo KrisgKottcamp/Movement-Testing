@@ -45,6 +45,8 @@ public class EnemyHealth : MonoBehaviour
     private bool gaugeIsBroken = false; //Bool that detmines if a gauge has been broken or not.
     private Vector2 lastHitDirection; //The direction the last hit on the enemy was applied.
     private Rigidbody2D rb;
+    [SerializeField]
+    private float EnemyMass;
 
 
 
@@ -54,6 +56,7 @@ public class EnemyHealth : MonoBehaviour
         currentHealth = maxHealthAmount; //When the scene loads, this GameObject will start with max health.
         currentBruise = 0; // When the scene loads, this GameObject has a gauge of zero.
         rb = GetComponent<Rigidbody2D>();
+        rb.mass = EnemyMass;
     }
 
 
@@ -95,6 +98,9 @@ public class EnemyHealth : MonoBehaviour
                 BruiseBreak();       // send flying
             }
 
+            if (currentBruise < maxBruise) {
+                rb.mass = EnemyMass;
+            }
 
             //If current health goes below zero, this GameObject is considered dead.
             if (currentHealth <= 0)
@@ -120,6 +126,7 @@ public class EnemyHealth : MonoBehaviour
     {
         gaugeIsBroken = true;
         rb.linearVelocity = Vector2.zero; // zeros out any existing velocity.
+        rb.mass = 1;
         rb.AddForce(lastHitDirection * flybackSpeed, ForceMode2D.Impulse); //sends them flying back in the last hit direction
         StartCoroutine(FlybackRoutine());
     }

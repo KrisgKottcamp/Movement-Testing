@@ -1,4 +1,5 @@
 using System.Collections;
+using Unity.VisualScripting;
 using UnityEngine;
 
 [RequireComponent(typeof(Animator))]
@@ -12,8 +13,8 @@ public class MeleeWeapon : MonoBehaviour
     [Header("Bounce Settings")]
     [SerializeField] private float pogoForce = 12f;          // Upward bounce strength
     [SerializeField] private float bounceBackForce = 5f;          // Backwards bounce strength
-    [SerializeField] private Vector2 hitboxSize = new Vector2(1f, 0.25f);   // Width x Height
-    [SerializeField] private Vector2 hitboxOffset = new Vector2(0f, -0.5f);   // Local space offset
+    [SerializeField] public Vector2 hitboxSize = new Vector2(1f, 0.25f);   // Width x Height
+    [SerializeField] public Vector2 hitboxOffset = new Vector2(0f, -0.5f);   // Local space offset
     [SerializeField] private LayerMask enemyLayer;                    // Layer mask for enemies
 
     private CharacterControl characterControl;
@@ -26,6 +27,7 @@ public class MeleeWeapon : MonoBehaviour
         characterControl = GetComponentInParent<CharacterControl>();
         meleeAttackManager = GetComponentInParent<MeleeAttackManager>();
     }
+
 
 
     public void PerformAttack()
@@ -42,6 +44,10 @@ public class MeleeWeapon : MonoBehaviour
 
             // 1) Always apply both health and bruise damage:
             Vector2 hitDir = meleeAttackManager.raw.normalized;
+            if (hitDir == Vector2.zero) // If I am not holding a stick direction when attacking, Hit direction defaults to forward.
+            {
+                hitDir = characterControl.facingRight ? Vector2.right : Vector2.left;
+            }
             enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
 
 

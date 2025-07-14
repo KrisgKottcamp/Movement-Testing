@@ -554,7 +554,7 @@ Rigidbody2D:
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
-  m_Constraints: 4
+  m_Constraints: 5
 --- !u!61 &851058418
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1647,7 +1647,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8815412744864774530, guid: 5f17cba79fd867848a45652618f6a0da, type: 3}
       propertyPath: hitboxSize.x
-      value: 1.32
+      value: 1.33
       objectReference: {fileID: 0}
     - target: {fileID: 8815412744864774530, guid: 5f17cba79fd867848a45652618f6a0da, type: 3}
       propertyPath: hitboxSize.y
@@ -1668,6 +1668,10 @@ PrefabInstance:
     - target: {fileID: 8815412744864774530, guid: 5f17cba79fd867848a45652618f6a0da, type: 3}
       propertyPath: hitboxOffset.y
       value: -1.07
+      objectReference: {fileID: 0}
+    - target: {fileID: 8815412744864774530, guid: 5f17cba79fd867848a45652618f6a0da, type: 3}
+      propertyPath: bounceBackForce
+      value: 64
       objectReference: {fileID: 0}
     - target: {fileID: 8815412744864774530, guid: 5f17cba79fd867848a45652618f6a0da, type: 3}
       propertyPath: enemyLayer.m_Bits
@@ -1893,7 +1897,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 4067822762346690589, guid: a6e7cb0354cac9647a51e360f11ce13f, type: 3}
       propertyPath: maxBruise
-      value: 100
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 4067822762346690589, guid: a6e7cb0354cac9647a51e360f11ce13f, type: 3}
       propertyPath: flybackSpeed
@@ -5547,6 +5551,10 @@ PrefabInstance:
     - target: {fileID: 103357919520691976, guid: 09b6cbdaceae18749960cd326a1fccd3, type: 3}
       propertyPath: m_Enabled
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 399841743625639380, guid: 09b6cbdaceae18749960cd326a1fccd3, type: 3}
+      propertyPath: m_Mass
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3937408662476510300, guid: 09b6cbdaceae18749960cd326a1fccd3, type: 3}
       propertyPath: m_LocalPosition.x
