@@ -91,7 +91,7 @@ public class CharacterControl : MonoBehaviour
     public float bounceBackLerpTime = 0.2f;
 
     private MeleeWeapon MeleeWeapon;
-    
+
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -411,7 +411,6 @@ public class CharacterControl : MonoBehaviour
         gameObject.transform.localScale = currentScale;
 
         facingRight = !facingRight;
-        MeleeWeapon.hitboxOffset.x *=-1;
     }
 
 
@@ -456,7 +455,7 @@ public class CharacterControl : MonoBehaviour
         {
             canDash = true;
             rb.gravityScale = gravforce;
- }
+        }
 
         if (!canDash && Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer))
         {
@@ -485,17 +484,16 @@ public class CharacterControl : MonoBehaviour
         rb.AddForce(force, ForceMode2D.Impulse);
 
     }
-
     public void ApplyBounceBackForce(Vector2 force)
     {
         Debug.Log("Bounce Back!");
         // stop any existing horizontal momentum
-        rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+        rb.linearVelocity = new Vector2(0f, 0f);
         // then impulse in the given direction
         rb.AddForce(force, ForceMode2D.Impulse);
 
         // restart LERP coroutine so control returns smoothly
-;
+        ;
         StartCoroutine(nameof(BounceBackRoutine));
     }
 

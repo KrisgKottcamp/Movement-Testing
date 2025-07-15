@@ -19,6 +19,8 @@ public class EnemyHealth : MonoBehaviour
     private int maxHealthAmount = 100; //Determines max health this GameObject has.
     [SerializeField]
     public int currentHealth; //The current amount of health this game object has after receiving damage.
+    [SerializeField]
+    public float basicKnockBackPower; //The 
 
     [Header("Bruise Gauge")]
     [SerializeField]
@@ -75,9 +77,12 @@ public class EnemyHealth : MonoBehaviour
             {
                 float decay = (bruiseCoolOffRate * Time.deltaTime);
                 currentBruise = Mathf.Max(0, currentBruise - decay);
-
             }
+        }
 
+        if (rb.linearVelocity.y == 0)
+        {
+            rb.mass = EnemyMass;
         }
     }
 
@@ -98,8 +103,13 @@ public class EnemyHealth : MonoBehaviour
                 BruiseBreak();       // send flying
             }
 
-            if (currentBruise < maxBruise) {
-                rb.mass = EnemyMass;
+            if (currentBruise < maxBruise && !gaugeIsBroken) {
+
+                rb.mass = 1;
+                rb.linearVelocity = Vector2.zero; // zeros out any existing velocity.
+                var kb = GetComponent<KnockbackController>();
+                if (kb != null)
+                    kb.TriggerKnockback(lastHitDirection);
             }
 
             //If current health goes below zero, this GameObject is considered dead.
@@ -125,8 +135,8 @@ public class EnemyHealth : MonoBehaviour
     private void BruiseBreak()
     {
         gaugeIsBroken = true;
-        rb.linearVelocity = Vector2.zero; // zeros out any existing velocity.
         rb.mass = 1;
+        rb.linearVelocity = Vector2.zero; // zeros out any existing velocity.
         rb.AddForce(lastHitDirection * flybackSpeed, ForceMode2D.Impulse); //sends them flying back in the last hit direction
         StartCoroutine(FlybackRoutine());
     }

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -22,6 +22,7 @@ public class MeleeWeapon : MonoBehaviour
     private bool hasAttackedThisSwing = false;
     private Coroutine cooldownCoroutine;
 
+
     private void Awake()
     {
         characterControl = GetComponentInParent<CharacterControl>();
@@ -30,7 +31,7 @@ public class MeleeWeapon : MonoBehaviour
 
 
 
-    public void PerformAttack()
+    public void PerformPogo()
     {
 
         Vector2 origin = (Vector2)transform.position + hitboxOffset;
@@ -42,15 +43,6 @@ public class MeleeWeapon : MonoBehaviour
             if (enemy == null || hasAttackedThisSwing)
                 continue;
 
-            // 1) Always apply both health and bruise damage:
-            Vector2 hitDir = meleeAttackManager.raw.normalized;
-            if (hitDir == Vector2.zero) // If I am not holding a stick direction when attacking, Hit direction defaults to forward.
-            {
-                hitDir = characterControl.facingRight ? Vector2.right : Vector2.left;
-            }
-            enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
-
-
             bool didPogo = enemy.giveUpwardForce && !characterControl.isGrounded && meleeAttackManager.meleeAttackDir.y <= 0f && meleeAttackManager.meleeAttackDir.x == 0f;
 
             // 2) Only do the pogo if this enemy is pogoable:
@@ -59,26 +51,60 @@ public class MeleeWeapon : MonoBehaviour
                 Debug.Log("Did Pogo!");
                 characterControl.ApplyPogoForce(Vector2.up * pogoForce);
             }
-            else
-            {
-                // bounce the player *away* from the enemy  
-                // (hitDir points TOWARD the enemy, so invert it)
-                Vector2 bounceDir = -hitDir;
-                characterControl.ApplyBounceBackForce(bounceDir * bounceBackForce);
-            }
             hasAttackedThisSwing = true;
             if (cooldownCoroutine != null) StopCoroutine(cooldownCoroutine);
             cooldownCoroutine = StartCoroutine(ResetAttack());
             break;
-            
 
         }
     }
+
+    private void OnTriggerExit2D(Collider2D collision)
+    {
+        if (collision.GetComponent<EnemyHealth>())
+        {
+            var enemy = collision.GetComponentInParent<EnemyHealth>();
+            if (enemy != null)
+                HandleCollision(enemy);
+        }
+
+
+    }
+
+    private void HandleCollision(EnemyHealth enemy)
+    {
+        // 1) guard so we only ever do this once per attack swing
+        if (hasAttackedThisSwing)
+            return;
+        hasAttackedThisSwing = true;
+
+        // 1) Always apply both health and bruise damage:
+        Vector2 hitDir = meleeAttackManager.raw;
+        if (hitDir == Vector2.zero) // If I am not holding a stick direction when attacking, Hit direction defaults to forward.
+        {
+            hitDir = characterControl.facingRight ? Vector2.right : Vector2.left;
+        }
+        
+
+        enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
+
+
+        // bounce the player *away* from the enemy  
+        Vector2 bounceDir = -hitDir;    // (hitDir points TOWARD the enemy, so invert it)
+        characterControl.ApplyBounceBackForce(bounceDir * bounceBackForce);
+
+        if (cooldownCoroutine != null) 
+            StopCoroutine(cooldownCoroutine);
+        cooldownCoroutine = StartCoroutine(ResetAttack());
+
+    }
+
 
     private IEnumerator ResetAttack()
     {
         yield return new WaitForSeconds(attackCooldown);
         hasAttackedThisSwing = false;
+        
     }
 
     private void OnDrawGizmosSelected()
