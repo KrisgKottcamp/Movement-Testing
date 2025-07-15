@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4767165040784099122}
   - component: {fileID: 5409877128129630610}
   - component: {fileID: 4067822762346690589}
+  - component: {fileID: 3241308218776243620}
   - component: {fileID: 7086086301614636735}
   - component: {fileID: 2623020923735262396}
   m_Layer: 8
@@ -105,9 +106,10 @@ MonoBehaviour:
   damageable: 1
   invulnerabilitiyTime: 0.2
   giveUpwardForce: 1
-  maxHealthAmount: 200
+  maxHealthAmount: 9999999
   currentHealth: 0
-  maxBruise: 59
+  basicKnockBackPower: 200
+  maxBruise: 100000000
   currentBruise: 0
   bruiseCoolOffDelay: 2
   bruiseCoolOffRate: 3
@@ -117,6 +119,45 @@ MonoBehaviour:
   ricochetBruise: 20
   gaugeIsBroken: 0
   EnemyMass: 50
+--- !u!114 &3241308218776243620
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5456934690996795604}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5283b130e155c849898bc183136136a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  canBeKnockedBack: 1
+  duration: 0.25
+  strength: 32
+  forceCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!50 &7086086301614636735
 Rigidbody2D:
   serializedVersion: 5
@@ -132,8 +173,8 @@ Rigidbody2D:
   m_Mass: 1
   m_LinearDamping: 0
   m_AngularDamping: 0.05
-  m_GravityScale: 1
-  m_Material: {fileID: 0}
+  m_GravityScale: 8
+  m_Material: {fileID: 6200000, guid: abf832e4da85cbc4089d28fada14403f, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

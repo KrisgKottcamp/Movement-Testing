@@ -90,7 +90,9 @@ public class CharacterControl : MonoBehaviour
     [SerializeField]
     public float bounceBackLerpTime = 0.2f;
 
-    private MeleeWeapon MeleeWeapon;
+    [HideInInspector] public bool isMovementLocked = false;
+
+    
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -104,7 +106,7 @@ public class CharacterControl : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
+        if (isMovementLocked) return;   // ← bail out here when sticking
         WallSlide();
         WallJump();
         JumpController();
@@ -120,6 +122,7 @@ public class CharacterControl : MonoBehaviour
         if (isPogoBouncing)
             return;
 
+        if (isMovementLocked) return;   // ← also skip any physics override
         MovementController();
         Dashing();
     }

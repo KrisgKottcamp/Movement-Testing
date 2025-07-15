@@ -40,6 +40,16 @@ public class MeleeAttackManager : MonoBehaviour
         meleeAttackInput = true;
     }
 
+
+    private void TrySticky()
+    {
+        Debug.Log($"[AttackMgr] RawInput=({raw.x:F2},{raw.y:F2}) SnappedDir={meleeAttackDir}");
+        var stick = GetComponent<AttackStickinessController>();
+        if (stick != null)
+            stick.TryStickToNearestEnemy(meleeAttackDir);
+
+    }
+
     private void CheckInput() // Main method to handle melee input and execute corresponding attacks
     {
         // Read raw stick input without Unity’s smoothing
@@ -82,6 +92,7 @@ public class MeleeAttackManager : MonoBehaviour
 
         meleeAttack = meleeAttackInput;    // copy the input flag for any other systems
 
+
         // Use the snapped direction to pick which attack animation to play
         switch (meleeAttackDir)
         {
@@ -89,7 +100,7 @@ public class MeleeAttackManager : MonoBehaviour
                 anim.SetTrigger("UpwardMelee");          // trigger character animation
                 meleeAnimator.SetTrigger("UpwardMeleeSwipe"); // trigger swipe VFX
                 meleeAttackInput = false;                // clear the input flag
-
+                TrySticky();
                 break;
 
             case var d when d == new Vector2(0, -1)
@@ -103,12 +114,14 @@ public class MeleeAttackManager : MonoBehaviour
                 anim.SetTrigger("ForwardMelee");
                 meleeAnimator.SetTrigger("ForwardMeleeSwipe");
                 meleeAttackInput = false;
+                TrySticky();
                 break;
 
             case var d when d == new Vector2(1, 1):   // up‐right diagonal
                 anim.SetTrigger("UpwardDiagonalMelee");
                 meleeAnimator.SetTrigger("UpwardDiagonalMeleeSwipe");
                 meleeAttackInput = false;
+                TrySticky();
                 break;
 
             case var d when d == new Vector2(1, -1)
@@ -116,12 +129,14 @@ public class MeleeAttackManager : MonoBehaviour
                 anim.SetTrigger("DownwardDiagonalMelee");
                 meleeAnimator.SetTrigger("DownwardDiagonalMeleeSwipe");
                 meleeAttackInput = false;
+                TrySticky();
                 break;
 
             case var d when d == new Vector2(-1, 1):   // up‐left diagonal
                 anim.SetTrigger("UpwardDiagonalMelee");
                 meleeAnimator.SetTrigger("UpwardDiagonalMeleeSwipe");
                 meleeAttackInput = false;
+                TrySticky();
                 break;
 
             case var d when d == new Vector2(-1, -1)
@@ -129,6 +144,7 @@ public class MeleeAttackManager : MonoBehaviour
                 anim.SetTrigger("DownwardDiagonalMelee");
                 meleeAnimator.SetTrigger("DownwardDiagonalMeleeSwipe");
                 meleeAttackInput = false;
+                TrySticky();
                 break;
 
             default:

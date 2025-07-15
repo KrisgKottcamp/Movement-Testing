@@ -1,10 +1,14 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 
 [RequireComponent(typeof(Animator))]
 public class MeleeWeapon : MonoBehaviour
 {
+    // let other systems know when a pogo actually happened
+    public event Action OnPogoPerformed;
+
     [Header("Damage Settings")]
     [SerializeField] private int damageAmount = 20;
     [SerializeField] private int bruiseDamageAmount = 20;
@@ -50,6 +54,10 @@ public class MeleeWeapon : MonoBehaviour
             {
                 Debug.Log("Did Pogo!");
                 characterControl.ApplyPogoForce(Vector2.up * pogoForce);
+
+                // **NEW** notify the stickiness controller (so it can cancel)
+                OnPogoPerformed?.Invoke();
+
             }
             hasAttackedThisSwing = true;
             if (cooldownCoroutine != null) StopCoroutine(cooldownCoroutine);
