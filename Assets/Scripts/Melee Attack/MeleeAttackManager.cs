@@ -148,6 +148,7 @@ public class MeleeAttackManager : MonoBehaviour
                 break;
 
             default:
+                TrySticky();
                 // Any other case (e.g. grounded down-diagonal) — do nothing
                 break;
         }
