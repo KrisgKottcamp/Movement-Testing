@@ -27,9 +27,9 @@ public class KnockbackController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
     }
 
-    /// <summary>
-    /// Call this to fire off a knockback. 0,0 dir is ignored.
-    /// </summary>
+
+    // Call this to fire off a knockback.
+
     public void TriggerKnockback(Vector2 rawDir)
     {
         if (!canBeKnockedBack || rawDir == Vector2.zero)
@@ -47,8 +47,6 @@ public class KnockbackController : MonoBehaviour
     {
         float timer = 0f;
 
-        // Optional: optional tiny freeze-frame at the very start
-        // yield return new WaitForSeconds(0.02f);
 
         while (timer < duration)
         {
@@ -62,7 +60,7 @@ public class KnockbackController : MonoBehaviour
             yield return null;
         }
 
-        // End: zero it out so you don't keep sliding
+        // zeros it out so you don't keep sliding
         rb.linearVelocity = Vector2.zero;
         knockbackRoutine = null;
     }

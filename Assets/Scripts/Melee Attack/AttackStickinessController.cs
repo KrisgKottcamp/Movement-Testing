@@ -27,6 +27,9 @@ public class AttackStickinessController : MonoBehaviour
     [Header("Ease Curve")]
     public AnimationCurve stickCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
+    private bool isSticking;
+
+
     Rigidbody2D rb;
     CharacterControl cc;
     private Tween _activeTween;
@@ -38,9 +41,9 @@ public class AttackStickinessController : MonoBehaviour
         cc = GetComponent<CharacterControl>();
     }
 
-    /// <summary>
-    /// Pull you toward the nearest valid enemy in attackDir.
-    /// </summary>
+    
+    // Pull you toward the nearest valid enemy in attackDir.
+ 
     public void TryStickToNearestEnemy(Vector2 attackDir)
     {
         // remember your last non-zero attack dir
