@@ -31,7 +31,7 @@ Transform:
   m_GameObject: {fileID: 5456934690996795604}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -5.389592, y: -9.123906, z: 0.0060932143}
+  m_LocalPosition: {x: -0.11, y: -8.59, z: 0.0060932143}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -111,18 +111,16 @@ MonoBehaviour:
   currentHealth: 0
   basicKnockBackPower: 200
   maxBruise: 99
-  currentBruise: 0
   bruiseCoolOffDelay: 2
   bruiseCoolOffRate: 3
-  timeSinceLastHit: 0
-  flybackSpeed: 20
-  ricochetDamage: 35
+  flybackSpeed: 40
+  ricochetDamage: 10
   ricochetBruise: 50
   gaugeIsBroken: 0
   EnemyMass: 50
   defaultMaterial: {fileID: 6200000, guid: abf832e4da85cbc4089d28fada14403f, type: 2}
   highBounceMaterial: {fileID: 6200000, guid: e441ef281991a724ab0c828858633621, type: 2}
-  flybackDuration: 0.2
+  flybackDuration: 0.4
   flybackCurve:
     serializedVersion: 2
     m_Curve:
@@ -156,6 +154,14 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  overlapBoxSize: {x: 2.53, y: 2.76}
+  overlapBoxAngle: 0
+  bounceLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  enemyLayers:
+    serializedVersion: 2
+    m_Bits: 0
 --- !u!114 &3241308218776243620
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -219,7 +225,7 @@ Rigidbody2D:
     serializedVersion: 2
     m_Bits: 0
   m_Interpolate: 0
-  m_SleepingMode: 1
+  m_SleepingMode: 0
   m_CollisionDetection: 1
   m_Constraints: 4
 --- !u!61 &2623020923735262396
@@ -266,7 +272,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 2.25, y: 2.5}
+  m_Size: {x: 2.27, y: 2.5}
   m_EdgeRadius: 0
 --- !u!96 &4131632262653362653
 TrailRenderer:

@@ -59,6 +59,7 @@ public class AttackStickinessController : MonoBehaviour
         Transform best = null;
         float bestAngle = float.MaxValue;
 
+        
         // pick the one with the smallest angle to your attackDir
         foreach (var c in hits)
         {
