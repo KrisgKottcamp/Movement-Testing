@@ -1,6 +1,9 @@
 ﻿using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
+using Unity.Cinemachine;
+using UnityEngine.UIElements;
+
 
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(TrailRenderer))]
 public class EnemyHealth : MonoBehaviour
@@ -24,6 +27,7 @@ public class EnemyHealth : MonoBehaviour
     [Header("Bruise Gauge")]
     [SerializeField] private float maxBruise = 100f;
     [SerializeField] private float currentBruise = 0f;
+    
 
     [Header("Bruise Gauge Cooloff")]
     [SerializeField] private float bruiseCoolOffDelay = 2f;
@@ -39,7 +43,7 @@ public class EnemyHealth : MonoBehaviour
 
     private Rigidbody2D rb;
     [SerializeField] private float EnemyMass;
-    private TrailRenderer enemyTrail;
+    
 
     [Header("Bounce FX")]
     [Tooltip("Baseline physics material before break")]
@@ -69,7 +73,12 @@ public class EnemyHealth : MonoBehaviour
     private Vector2 currentFlybackDir;
     private Coroutine flybackCoroutine;
 
-    private MeleeWeapon meleeWeapon;
+    [Header("Effects")]
+    private TrailRenderer enemyTrail;
+    private CinemachineImpulseSource impulseSource;
+    [SerializeField] private GameObject bruiseBreakVFX;
+    [SerializeField] private GameObject enemyDeathVFX;
+
 
     void Start()
     {
@@ -83,6 +92,8 @@ public class EnemyHealth : MonoBehaviour
         col.sharedMaterial = defaultMaterial;
         sr = GetComponent<SpriteRenderer>();
         originalMat = sr.material;
+        impulseSource = GetComponent<CinemachineImpulseSource>();
+
     }
 
     void Update()
@@ -117,6 +128,7 @@ public class EnemyHealth : MonoBehaviour
         currentBruise += bruiseDamage;
         lastHitDirection = hitDir.normalized;
         timeSinceLastHit = 0f;
+        CameraShakeManager.instance.CameraShake(impulseSource);
 
         if (currentBruise >= maxBruise && !gaugeIsBroken)
             BruiseBreak();
@@ -139,13 +151,44 @@ public class EnemyHealth : MonoBehaviour
     private void BruiseBreak()
     {
         gaugeIsBroken = true;
+        BruiseBreakFX();
         rb.mass = 1f;
         StopAllCoroutines();
-        enemyTrail.enabled = true;
+        CameraShakeManager.instance.CameraShake(impulseSource);
         rb.angularDamping = 0f;
         rb.linearDamping = 0f;
         col.sharedMaterial = highBounceMaterial;
         flybackCoroutine = StartCoroutine(DoFlyback(lastHitDirection));
+    }
+
+    private void BruiseBreakFX()
+    {
+        if (bruiseBreakVFX == null)
+            return;
+
+        // Spawn the VFX prefab at the enemy’s position
+        var vfxInstance = Instantiate(bruiseBreakVFX, transform.position, Quaternion.identity);
+
+        // Find the ParticleSystem (even if it’s on a child) and trigger it
+        var ps = vfxInstance.GetComponentInChildren<ParticleSystem>();
+        if (ps != null)
+        {
+            // Force single‑play
+            var main = ps.main;
+            main.loop = false;
+
+            ps.Clear();  // reset any old particles
+            ps.Play();   // fire the burst
+
+            // Compute how long it needs to live (duration + longest startLifetime)
+            float lifetime = main.duration + main.startLifetime.constantMax;
+
+            // Destroy this VFX object after it’s done
+            Destroy(vfxInstance, lifetime);
+        }
+
+        // Re‑enable any trailing effects if used
+        enemyTrail.enabled = true;
     }
 
     private IEnumerator DoFlyback(Vector2 direction)
@@ -243,6 +286,29 @@ public class EnemyHealth : MonoBehaviour
     private void Die()
     {
         currentHealth = 0;
-        gameObject.SetActive(false);
+
+        // Spawn the VFX prefab at the enemy’s position
+        var vfxInstance = Instantiate(enemyDeathVFX, transform.position, Quaternion.identity);
+
+        // Find the ParticleSystem (even if it’s on a child) and trigger it
+        var ps = vfxInstance.GetComponentInChildren<ParticleSystem>();
+        if (ps != null)
+        {
+            // Force single‑play
+            var main = ps.main;
+            main.loop = false;
+
+            ps.Clear();  // reset any old particles
+            ps.Play();   // fire the burst
+
+            // Compute how long it needs to live (duration + longest startLifetime)
+            float lifetime = main.duration + main.startLifetime.constantMax;
+
+            // Destroy this VFX object after it’s done
+            Destroy(vfxInstance, lifetime);
+        }
+
+        gameObject.SetActive(false); //Deletes Enemy
+
     }
 }

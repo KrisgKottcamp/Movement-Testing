@@ -41,14 +41,25 @@ public class AttackStickinessController : MonoBehaviour
         cc = GetComponent<CharacterControl>();
     }
 
-    
-    // Pull you toward the nearest valid enemy in attackDir.
- 
+    void Update()
+    {
+        // 1) Try raw input first (optional)
+        Vector2 raw = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        if (raw.sqrMagnitude > 0.01f)
+        {
+            lastAttackDir = raw.normalized;
+            return;
+        }
+
+        // 2) Fallback to facing direction via localScale.x
+        float sign = Mathf.Sign(transform.localScale.x);
+        lastAttackDir = new Vector2(sign, 0f);
+    }
+
+
+    // Pull you toward the nearest valid enemy in attackDir
     public void TryStickToNearestEnemy(Vector2 attackDir)
     {
-        // remember your last non-zero attack dir
-        if (attackDir.sqrMagnitude > 0.01f)
-            lastAttackDir = attackDir.normalized;
 
         // skip pure downward-ish swings so pogo still works
         float angleFromDown = Vector2.Angle(lastAttackDir, Vector2.down);

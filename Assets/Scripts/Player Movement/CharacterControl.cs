@@ -14,7 +14,8 @@ public class CharacterControl : MonoBehaviour
     #region Movement Settings
 
     [Header("Components")]
-    public Rigidbody2D rb;
+    [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private Animator animator;
     private PlayerControls playercontrols;
     [SerializeField] private Transform wallCheck;
     [SerializeField] private LayerMask wallLayer;
@@ -45,12 +46,9 @@ public class CharacterControl : MonoBehaviour
     public float moveSpeed;
     public bool facingRight = true;
 
-
-
     #endregion
 
     #region Movement Settings
-
     [Header("Wall Slide/Grab")]
     public bool isWallSliding;
     public float wallSlidingSpeed = 2f;
@@ -111,7 +109,11 @@ public class CharacterControl : MonoBehaviour
         WallJump();
         JumpController();
 
-
+        bool isAttacking = animator.GetCurrentAnimatorStateInfo(0).IsTag("Attack");
+        if (isAttacking)
+        {
+            moveSpeed = 0;
+        } else { moveSpeed = 12f; }
 
         //AIR INTERPOLANT
         airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
@@ -154,9 +156,6 @@ public class CharacterControl : MonoBehaviour
         }
 
     }
-
-
-
 
 
     //JUMP CONTROLLER
@@ -430,7 +429,6 @@ public class CharacterControl : MonoBehaviour
         if (dashInput && canDash)
         {
             CameraShakeManager.instance.CameraShake(impulseSource);
-            Debug.Log("Dash");
             isDashing = true;
             canDash = false;
             dashingDir = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized;

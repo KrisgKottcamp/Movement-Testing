@@ -30,7 +30,7 @@ public class MeleeWeapon : MonoBehaviour
     [SerializeField] public Vector2 hitboxOffset = new Vector2(0f, -0.5f);   // Local space offset
     [SerializeField] private LayerMask enemyLayer;                    // Layer mask for enemies
 
-    private CharacterControl characterControl;
+    [SerializeField] private CharacterControl characterControl;
     private MeleeAttackManager meleeAttackManager;
     public EnemyHealth enemyHealth;
     private bool hasAttackedThisSwing = false;
@@ -47,38 +47,46 @@ public class MeleeWeapon : MonoBehaviour
 
     public void PerformPogo()
     {
-
         Vector2 origin = (Vector2)transform.position + hitboxOffset;
         Collider2D[] hits = Physics2D.OverlapBoxAll(origin, hitboxSize, 0f, enemyLayer);
 
         foreach (var col in hits)
         {
-            
             var enemy = col.GetComponentInParent<EnemyHealth>();
             if (enemy == null || hasAttackedThisSwing)
                 continue;
 
-            bool didPogo = enemy.giveUpwardForce && !characterControl.isGrounded && meleeAttackManager.meleeAttackDir.y <= 0f && meleeAttackManager.meleeAttackDir.x == 0f;
+            bool didPogo =
+                enemy.giveUpwardForce
+             && !characterControl.isGrounded
+             && meleeAttackManager.meleeAttackDir.y <= 0f
+             && meleeAttackManager.meleeAttackDir.x == 0f;
 
-            // 2) Only do the pogo if this enemy is pogoable:
-            if (didPogo)
-            {
-                StartCoroutine(HitStop());
+            if (!didPogo)
+                continue;
 
-                Debug.Log("Did Pogo!");
-                characterControl.ApplyPogoForce(Vector2.up * pogoForce);
+            // 1) Do hit‑stop
+            StartCoroutine(HitStop());
 
-                // **NEW** notify the stickiness controller (so it can cancel)
-                OnPogoPerformed?.Invoke();
+            // 2) Damage the enemy
+            enemy.Damage(damageAmount, bruiseDamageAmount, Vector2.down);
 
-            }
+            // 3) Bounce *you* off
+            characterControl.ApplyPogoForce(Vector2.up * pogoForce);
+
+            // 4) Notify stickiness
+            OnPogoPerformed?.Invoke();
+
+            // 5) Mark and cooldown
             hasAttackedThisSwing = true;
             if (cooldownCoroutine != null) StopCoroutine(cooldownCoroutine);
             cooldownCoroutine = StartCoroutine(ResetAttack());
-            break;
 
+            break;  // only one pogo per swing
         }
     }
+
+
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -110,7 +118,6 @@ public class MeleeWeapon : MonoBehaviour
 
         // 3) Handles Enemy Damage
         enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
-
 
         // bounce the player *away* from the enemy  
         Vector2 bounceDir = -hitDir;    // (hitDir points TOWARD the enemy, so invert it)
