@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using Unity.Cinemachine;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -14,6 +15,14 @@ public class MeleeWeapon : MonoBehaviour
     [SerializeField] private int bruiseDamageAmount = 20;
     [SerializeField] private float attackCooldown = 0.2f;         // Time before next pogo
 
+    [Header("Hit‑Stop Settings")]
+    [Tooltip("Seconds of frozen time on each hit")]
+    [SerializeField] private float hitStopDuration = 0.05f;
+    private CinemachineImpulseSource impulseSource;
+
+    // internal trackers
+    private float _prevTimeScale, _prevFixedDeltaTime;
+
     [Header("Bounce Settings")]
     [SerializeField] private float pogoForce = 12f;          // Upward bounce strength
     [SerializeField] private float bounceBackForce = 5f;          // Backwards bounce strength
@@ -23,6 +32,7 @@ public class MeleeWeapon : MonoBehaviour
 
     private CharacterControl characterControl;
     private MeleeAttackManager meleeAttackManager;
+    public EnemyHealth enemyHealth;
     private bool hasAttackedThisSwing = false;
     private Coroutine cooldownCoroutine;
 
@@ -43,6 +53,7 @@ public class MeleeWeapon : MonoBehaviour
 
         foreach (var col in hits)
         {
+            
             var enemy = col.GetComponentInParent<EnemyHealth>();
             if (enemy == null || hasAttackedThisSwing)
                 continue;
@@ -52,6 +63,8 @@ public class MeleeWeapon : MonoBehaviour
             // 2) Only do the pogo if this enemy is pogoable:
             if (didPogo)
             {
+                StartCoroutine(HitStop());
+
                 Debug.Log("Did Pogo!");
                 characterControl.ApplyPogoForce(Vector2.up * pogoForce);
 
@@ -86,14 +99,16 @@ public class MeleeWeapon : MonoBehaviour
             return;
         hasAttackedThisSwing = true;
 
-        // 1) Always apply both health and bruise damage:
+        // 2) Always apply both health and bruise damage:
         Vector2 hitDir = meleeAttackManager.raw;
         if (hitDir == Vector2.zero) // If I am not holding a stick direction when attacking, Hit direction defaults to forward.
         {
             hitDir = characterControl.facingRight ? Vector2.right : Vector2.left;
         }
-        
 
+        StartCoroutine(HitStop());
+
+        // 3) Handles Enemy Damage
         enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
 
 
@@ -105,6 +120,25 @@ public class MeleeWeapon : MonoBehaviour
             StopCoroutine(cooldownCoroutine);
         cooldownCoroutine = StartCoroutine(ResetAttack());
 
+    }
+
+    private IEnumerator HitStop()
+    {
+
+        // store current time settings
+        _prevTimeScale = Time.timeScale;
+        _prevFixedDeltaTime = Time.fixedDeltaTime;
+
+        // freeze everything
+        Time.timeScale = 0f;
+        Time.fixedDeltaTime = 0f;
+
+        // wait in REAL time (unaffected by timeScale)
+        yield return new WaitForSecondsRealtime(hitStopDuration);
+
+        // restore normal time
+        Time.timeScale = _prevTimeScale;
+        Time.fixedDeltaTime = _prevFixedDeltaTime;
     }
 
 

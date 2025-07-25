@@ -9,15 +9,21 @@ public class EnemyHealth : MonoBehaviour
     [SerializeField] private float invulnerabilitiyTime = .2f;
     public bool giveUpwardForce = true;
     private bool hit;
-
+    
     [Header("Health Gauge")]
     [SerializeField] private int maxHealthAmount = 100;
     public int currentHealth;
     [SerializeField] private float basicKnockBackPower;
 
+    [Header("White Flash Settings")]
+    public Material silhouetteMat;
+    private Material originalMat;
+    private SpriteRenderer sr;
+    [SerializeField] private int whiteLengthFrames;
+
     [Header("Bruise Gauge")]
     [SerializeField] private float maxBruise = 100f;
-    private float currentBruise = 0f;
+    [SerializeField] private float currentBruise = 0f;
 
     [Header("Bruise Gauge Cooloff")]
     [SerializeField] private float bruiseCoolOffDelay = 2f;
@@ -63,6 +69,8 @@ public class EnemyHealth : MonoBehaviour
     private Vector2 currentFlybackDir;
     private Coroutine flybackCoroutine;
 
+    private MeleeWeapon meleeWeapon;
+
     void Start()
     {
         currentHealth = maxHealthAmount;
@@ -73,6 +81,8 @@ public class EnemyHealth : MonoBehaviour
         enemyTrail.enabled = false;
         col = GetComponent<Collider2D>();
         col.sharedMaterial = defaultMaterial;
+        sr = GetComponent<SpriteRenderer>();
+        originalMat = sr.material;
     }
 
     void Update()
@@ -89,6 +99,7 @@ public class EnemyHealth : MonoBehaviour
         // Reset mass after vertical motion stops
         if (Mathf.Approximately(rb.linearVelocity.y, 0f))
             rb.mass = EnemyMass;
+        
     }
 
     private IEnumerator TurnOffHit()
@@ -100,7 +111,7 @@ public class EnemyHealth : MonoBehaviour
     public void Damage(int hpDamage, int bruiseDamage, Vector2 hitDir)
     {
         if (!damageable || hit || currentHealth <= 0) return;
-
+        
         hit = true;
         currentHealth -= hpDamage;
         currentBruise += bruiseDamage;
@@ -120,7 +131,9 @@ public class EnemyHealth : MonoBehaviour
         if (currentHealth <= 0)
             Die();
         else
-            StartCoroutine(TurnOffHit());
+        
+        StartCoroutine(FlashWhite(whiteLengthFrames));
+        StartCoroutine(TurnOffHit());
     }
 
     private void BruiseBreak()
@@ -169,6 +182,7 @@ public class EnemyHealth : MonoBehaviour
                     // Self-damage on bounce
                     currentHealth = Mathf.Max(0, currentHealth - ricochetDamage);
                     currentBruise += ricochetBruise;
+                    StartCoroutine(FlashWhite(whiteLengthFrames));
                     if (currentHealth <= 0) { Die(); yield break; }
 
                     // Damage other enemies in the box
@@ -200,6 +214,19 @@ public class EnemyHealth : MonoBehaviour
         col.sharedMaterial = defaultMaterial;
         enemyTrail.enabled = false;
         gaugeIsBroken = false;
+    }
+
+    public IEnumerator FlashWhite(int frameCount)
+    {
+        // swap to the all‑white silhouette material
+        sr.material = silhouetteMat;
+
+        // hold it for the specified number of frames
+        for (int i = 0; i < frameCount; i++)
+            yield return null;
+
+        // restore the original material
+        sr.material = originalMat;
     }
 
     private void OnDrawGizmosSelected()
