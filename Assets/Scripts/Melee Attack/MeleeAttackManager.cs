@@ -22,6 +22,7 @@ public class MeleeAttackManager : MonoBehaviour
     private Animator anim;
     //The CharacterControl script on the player; pulled to access the grounded state.
     private CharacterControl characterControl;
+    private Transform swipePivot;
 
     public Vector2 raw;
 
@@ -32,7 +33,9 @@ public class MeleeAttackManager : MonoBehaviour
         //references components
         anim = GetComponent<Animator>(); //The Animator component on the player.
         characterControl = GetComponent<CharacterControl>();//The main CharacterControl script on the player used for managing grounded state.
-        meleeAnimator = GetComponentInChildren<MeleeWeapon>().gameObject.GetComponent<Animator>();//The animator component on the melee weapon
+        var weapon = GetComponentInChildren<MeleeWeapon>();
+        meleeAnimator = weapon.GetComponent<Animator>();//The animator component on the melee weapon
+        swipePivot = weapon.transform.parent;
     }
 
     private void OnMeleeAttack()
@@ -48,6 +51,12 @@ public class MeleeAttackManager : MonoBehaviour
         if (stick != null)
             stick.TryStickToNearestEnemy(meleeAttackDir);
 
+    }
+
+    private void PlayOmniSwipe(Quaternion rotation)
+    {
+        if (swipePivot != null)
+            swipePivot.rotation = rotation;
     }
 
     private void CheckInput() // Main method to handle melee input and execute corresponding attacks
