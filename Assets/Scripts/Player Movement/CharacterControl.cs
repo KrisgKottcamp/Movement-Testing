@@ -97,6 +97,7 @@ public class CharacterControl : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         playercontrols = new PlayerControls();
         impulseSource = GetComponent<CinemachineImpulseSource>();
     }
