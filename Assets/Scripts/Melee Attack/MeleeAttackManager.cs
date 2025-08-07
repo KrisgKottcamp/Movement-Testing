@@ -25,6 +25,9 @@ public class MeleeAttackManager : MonoBehaviour
 
     public Vector2 raw;
 
+    [SerializeField] private Transform weaponPivot;   // assign = meleeAnimator.transform in Inspector
+    [SerializeField] private float swipeReach = 1.0f; // how far from the player the swipe sits
+    [SerializeField] private bool cancelParentFlip = true;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     private void Start()
@@ -33,6 +36,11 @@ public class MeleeAttackManager : MonoBehaviour
         anim = GetComponent<Animator>(); //The Animator component on the player.
         characterControl = GetComponent<CharacterControl>();//The main CharacterControl script on the player used for managing grounded state.
         meleeAnimator = GetComponentInChildren<MeleeWeapon>().gameObject.GetComponent<Animator>();//The animator component on the melee weapon
+    }
+
+    private void Update()
+    {
+        CheckInput();
     }
 
     private void OnMeleeAttack()
@@ -176,23 +184,28 @@ public class MeleeAttackManager : MonoBehaviour
 
     private void PlayOmniSwipe(Vector2 direction)
     {
-        // Rotate the swipe animator so that its local X axis points along
-        // the desired direction.  The swipe animation itself faces right
-        // by default, so aligning transform.right works for any direction.
+        if (weaponPivot == null) weaponPivot = meleeAnimator.transform;
+
+        // A) Keep local scale positive (preserve your 2x width etc.)
+        var ls = weaponPivot.localScale;
+        ls.x = Mathf.Abs(ls.x);
+        ls.y = Mathf.Abs(ls.y);
+        weaponPivot.localScale = ls;
+
+        // B) Compute world-space placement & rotation
+        // If the player root is mirrored by scale.x < 0, add 180° so the sprite/collider faces the correct way
+        var parent = weaponPivot.parent;
+        bool parentMirrored = parent && parent.lossyScale.x < 0f;
+
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        meleeAnimator.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        if (parentMirrored) angle += 180f;
 
-        // Trigger the universal swipe animation.
+        Vector3 worldPos = transform.position + (Vector3)(direction.normalized * swipeReach);
+
+        // C) Apply world transform (immune to parent flip)
+        weaponPivot.SetPositionAndRotation(worldPos, Quaternion.Euler(0f, 0f, angle));
+
+        // D) Trigger the swipe anim (no scale keyframes on it!)
         meleeAnimator.SetTrigger("OmniMeleeSwipe");
-    }
-
-
-
-
-    // Update is called once per frame
-    void Update()
-    {
-        //Method that checks if melee button is being pressed.
-        CheckInput();
     }
 }
