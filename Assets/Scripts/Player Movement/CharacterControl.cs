@@ -29,9 +29,27 @@ public class CharacterControl : MonoBehaviour
     private float jumpTimeCounter;
     [SerializeField] private float jumpTime;
     private bool isJumping;
-    [SerializeField] private float gravforce;
+    
     [SerializeField] private float raycastDistance;
     public bool isGrounded = true;
+
+
+    [Header("Jump Slope Tuning")]
+    [SerializeField] private float jumpLaunchHorizImpulse = 1.5f;
+    [SerializeField] private float baseGravity = 8f;          // your normal gravity (was gravforce)
+    [SerializeField] private float ascendMult = 0.85f;        // < 1 = floatier going up
+    [SerializeField] private float apexMult = 0.70f;          // gravity when near apex
+    [SerializeField] private float apexThreshold = 1.0f;      // |vy| <= this = apex zone
+    [SerializeField] private float descendMult = 1.8f;        // > 1 = heavier going down
+    [SerializeField] private float jumpCutMult = 2.0f;        // extra gravity when releasing jump early
+    [SerializeField] private float fastFallMult = 2.2f;       // extra gravity when pressing down
+    [SerializeField] private float fastFallDownInput = -0.5f; // Input.GetAxisRaw("Vertical") <= this
+    [SerializeField] private float terminalFallSpeed = -25f;  // clamp max fall speed
+
+    [Header("Air Control")]
+    [SerializeField] private float airSpeedMultiplier = 1.15f; // 15% faster in air
+    [SerializeField] private float airAccelMultiplier = 1.2f;   // a bit snappier in air
+    [SerializeField] private float maxAirSpeed = 12f;           // cap so it doesn't run away
 
 
     [Header("Coyote & Buffer")]
@@ -156,6 +174,22 @@ public class CharacterControl : MonoBehaviour
             }
         }
 
+
+        bool airborne = !isGrounded && !isDashing && !isWallGrabbing;
+
+        float targetX = mover * moveSpeed * airInterpolant;
+        if (airborne)
+        {
+            targetX *= airSpeedMultiplier;
+        }
+
+        float lerpRate = airInterpolant * (airborne ? airAccelMultiplier : 1f) * Time.deltaTime;
+        float newX = Mathf.Lerp(rb.linearVelocity.x, targetX, lerpRate);
+
+        // Optional cap while in air
+        if (airborne) newX = Mathf.Clamp(newX, -maxAirSpeed, maxAirSpeed);
+
+        rb.linearVelocity = new Vector2(newX, rb.linearVelocity.y);
     }
 
 
@@ -190,6 +224,11 @@ public class CharacterControl : MonoBehaviour
         {
             if (jumpTimeCounter > 0)
             {
+                if (mover != 0f)
+                {
+                    rb.AddForce(new Vector2(Mathf.Sign(mover) * jumpLaunchHorizImpulse, 0f), ForceMode2D.Impulse);
+                }
+
                 rb.linearVelocity = Vector2.up * jumpforce;
                 jumpTimeCounter -= Time.deltaTime;
             }
@@ -246,14 +285,46 @@ public class CharacterControl : MonoBehaviour
 
         //FAST FALLING
         #region FastFalling; // causes player to fall faster than when they go up when jumping.
-        if (rb.linearVelocity.y < 0)
+        // ----- CUSTOM GRAVITY PROFILE (shapes jump slope) -----
+        if (!isDashing && !isWallGrabbing)    // respect dash & wall grab overrides
         {
-            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMult - 1) * Time.deltaTime;
+            // Start from your base gravity
+            float targetGravity = baseGravity;
+
+            float vy = rb.linearVelocity.y;
+            bool jumpHeld = Input.GetButton("Jump");
+            float vInput = Input.GetAxisRaw("Vertical");
+
+            // Phase-based multipliers
+            if (vy > 0.01f) // ascending
+            {
+                targetGravity *= ascendMult;
+
+                // Jump-cut: release early to get a shorter hop
+                if (!jumpHeld)
+                    targetGravity *= jumpCutMult;
+            }
+            else if (Mathf.Abs(vy) <= apexThreshold) // near apex
+            {
+                targetGravity *= apexMult;
+            }
+            else // descending
+            {
+                targetGravity *= descendMult;
+
+                // Fast-fall when holding down
+                if (vInput <= fastFallDownInput)
+                    targetGravity *= fastFallMult;
+            }
+
+            // Apply gravity scale
+            rb.gravityScale = targetGravity;
+
+            // Terminal velocity clamp
+            if (vy < terminalFallSpeed)
+                rb.linearVelocity = new Vector2(rb.linearVelocity.x, terminalFallSpeed);
         }
-        else if (rb.linearVelocity.y > 0 && jumpBufferCounter < 0f && coyoteTimeCounter < 0f)
-        {
-            rb.linearVelocity += Vector2.up * Physics2D.gravity.y * Time.deltaTime;
-        }
+        // ------------------------------------------------------
         #endregion
 
         //HEAD HIT RAYCAST
@@ -330,7 +401,7 @@ public class CharacterControl : MonoBehaviour
             }
 
         }
-        else { rb.gravityScale = gravforce; }
+        else {}
 
         if (isWallGrabbing && Input.GetButton("Jump"))
         {
@@ -456,7 +527,7 @@ public class CharacterControl : MonoBehaviour
         if (isGrounded)
         {
             canDash = true;
-            rb.gravityScale = gravforce;
+            rb.gravityScale = baseGravity;
         }
 
         if (!canDash && Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer))
@@ -479,7 +550,7 @@ public class CharacterControl : MonoBehaviour
     public bool isPogoBouncing = false;
     public void ApplyPogoForce(Vector2 force)
     {
-        rb.gravityScale = gravforce;
+        rb.gravityScale = baseGravity;
         // 1) reset any vertical speed so every bounce starts from zero
         rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
         // 2) apply the �gpogo�h as an instantaneous impulse
