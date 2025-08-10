@@ -120,7 +120,7 @@ MonoBehaviour:
   currentBruise: 0
   bruiseCoolOffDelay: 2
   bruiseCoolOffRate: 3
-  flybackSpeed: 30
+  flybackSpeed: 40
   ricochetDamage: 30
   ricochetBruise: 50
   gaugeIsBroken: 0
