@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5409877128129630610}
   - component: {fileID: 4067822762346690589}
   - component: {fileID: 3241308218776243620}
+  - component: {fileID: 7223317593935923080}
   - component: {fileID: 7086086301614636735}
   - component: {fileID: 2623020923735262396}
   - component: {fileID: 4131632262653362653}
@@ -32,7 +33,7 @@ Transform:
   m_GameObject: {fileID: 5456934690996795604}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -12.24, y: -9.45, z: 0.0060932143}
+  m_LocalPosition: {x: -11.674173, y: -8.355001, z: 0.0060932143}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -110,12 +111,12 @@ MonoBehaviour:
   damageable: 1
   invulnerabilitiyTime: 0.2
   giveUpwardForce: 1
-  maxHealthAmount: 200
+  maxHealthAmount: 300
   currentHealth: 0
   basicKnockBackPower: 200
   silhouetteMat: {fileID: 2100000, guid: 05722f48c300ef640ad9cd64701bc8d5, type: 2}
   whiteLengthFrames: 5
-  maxBruise: 79
+  maxBruise: 99
   currentBruise: 0
   bruiseCoolOffDelay: 2
   bruiseCoolOffRate: 3
@@ -202,7 +203,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   canBeKnockedBack: 1
   duration: 0.4
-  strength: 20
+  strength: 30
   forceCurve:
     serializedVersion: 2
     m_Curve:
@@ -227,6 +228,21 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &7223317593935923080
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5456934690996795604}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79db3f304054bd949b5f6690208af06a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  zeroVerticalVelocityOnStart: 1
+  horizontalDragDuringHover: 9
+  freezeRotationDuringHover: 1
 --- !u!50 &7086086301614636735
 Rigidbody2D:
   serializedVersion: 5

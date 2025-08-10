@@ -31,11 +31,23 @@ public class MeleeWeapon : MonoBehaviour
     [SerializeField] public Vector2 hitboxOffset = new Vector2(0f, -0.5f);   // Local space offset
     [SerializeField] private LayerMask enemyLayer;                    // Layer mask for enemies
 
+    [Header("Attack Hover Settings")]
+    [SerializeField] private float playerHoverDurationAir = 0.10f;
+    [SerializeField] private float playerHoverDurationGround = 0.06f;
+    [SerializeField] private float enemyHoverDuration = 0.10f;
+    [SerializeField] private bool enableHoverOnPogo = false;
+    [SerializeField][Range(0f, 90f)] private float downwardAsPogoAngle = 35f;
+    // Optional: how floaty enemies feel while hovering (0 = keep current)
+    [SerializeField] private float enemyHoverHorizontalDrag = 8f;
+
+
     [SerializeField] private CharacterControl characterControl;
     private MeleeAttackManager meleeAttackManager;
     public EnemyHealth enemyHealth;
     private bool hasAttackedThisSwing = false;
     private Coroutine cooldownCoroutine;
+    private AttackHover playerHover;
+   
 
     static readonly Collider2D[] _hitBuffer = new Collider2D[4];
 
@@ -43,6 +55,7 @@ public class MeleeWeapon : MonoBehaviour
     {
         characterControl = GetComponentInParent<CharacterControl>();
         meleeAttackManager = GetComponentInParent<MeleeAttackManager>();
+        playerHover = GetComponentInParent<AttackHover>();
     }
 
 
@@ -125,9 +138,34 @@ public class MeleeWeapon : MonoBehaviour
         Vector2 bounceDir = -hitDir;    // (hitDir points TOWARD the enemy, so invert it)
         characterControl.ApplyBounceBackForce(bounceDir * bounceBackForce);
 
+
+
+        // --- Attack Hover (Player + Enemy) ---
+        Vector2 attackDir =
+            (meleeAttackManager != null && meleeAttackManager.meleeAttackDir.sqrMagnitude > 0.0001f)
+                ? meleeAttackManager.meleeAttackDir.normalized
+                : (characterControl.facingRight ? Vector2.right : Vector2.left);
+
+        bool isDownish = Vector2.Angle(attackDir, Vector2.down) <= downwardAsPogoAngle;
+
+        // Enemy hover: always a short suspend
+        var enemyHover = enemy.GetComponent<AttackHover>();
+        if (enemyHover != null)
+            enemyHover.BeginHover(enemyHoverDuration, true, enemyHoverHorizontalDrag);
+
+        // Player hover: skip down-slash unless explicitly enabled
+        if (playerHover != null && (enableHoverOnPogo || !isDownish))
+        {
+            float dur = (characterControl != null && characterControl.isGrounded) ? playerHoverDurationGround : playerHoverDurationAir;
+            playerHover.BeginHover(dur, true, null);
+        }
+
+
+
         if (cooldownCoroutine != null) 
             StopCoroutine(cooldownCoroutine);
         cooldownCoroutine = StartCoroutine(ResetAttack());
+
 
     }
 

@@ -50,6 +50,7 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] private float airSpeedMultiplier = 1.15f; // 15% faster in air
     [SerializeField] private float airAccelMultiplier = 1.2f;   // a bit snappier in air
     [SerializeField] private float maxAirSpeed = 12f;           // cap so it doesn't run away
+    [SerializeField] private AttackHover hover; // player-side AttackHover
 
 
     [Header("Coyote & Buffer")]
@@ -118,6 +119,7 @@ public class CharacterControl : MonoBehaviour
         rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         playercontrols = new PlayerControls();
         impulseSource = GetComponent<CinemachineImpulseSource>();
+        if (!hover) hover = GetComponent<AttackHover>() ?? GetComponentInChildren<AttackHover>() ?? GetComponentInParent<AttackHover>();
     }
 
     // Update is called once per frame
@@ -286,7 +288,7 @@ public class CharacterControl : MonoBehaviour
         //FAST FALLING
         #region FastFalling; // causes player to fall faster than when they go up when jumping.
         // ----- CUSTOM GRAVITY PROFILE (shapes jump slope) -----
-        if (!isDashing && !isWallGrabbing)    // respect dash & wall grab overrides
+        if (!isDashing && !isWallGrabbing && (hover == null || !hover.IsHovering))    // respect dash & wall grab overrides
         {
             // Start from your base gravity
             float targetGravity = baseGravity;
@@ -527,13 +529,14 @@ public class CharacterControl : MonoBehaviour
         if (isGrounded)
         {
             canDash = true;
-            rb.gravityScale = baseGravity;
+            if (hover == null || !hover.IsHovering)
+                rb.gravityScale = baseGravity;
         }
 
         if (!canDash && Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer))
         {
 
-            StopDashing();
+            StartCoroutine(StopDashing());
 
         }
     }
@@ -543,7 +546,8 @@ public class CharacterControl : MonoBehaviour
         yield return new WaitForSeconds(dashingTime);
         isDashing = false;
         rb.linearVelocity *= 0f;
-        rb.gravityScale = 8f;
+        if (hover == null || !hover.IsHovering)
+            rb.gravityScale = baseGravity;
 
     }
     [SerializeField]
