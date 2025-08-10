@@ -51,13 +51,6 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] private float airAccelMultiplier = 1.2f;   // a bit snappier in air
     [SerializeField] private float maxAirSpeed = 12f;           // cap so it doesn't run away
 
-    [Header("Attack Hover")]
-    [SerializeField] private float attackHoverDuration = 0.12f;   // how long you “hang”
-    [SerializeField] private float hoverMaxFallSpeed = -0.5f;    // never fall faster than this while hovering
-    private float attackHoverTimer = 0f; 
-    public bool IsAttackHovering => attackHoverTimer > 0f;
-
-
 
     [Header("Coyote & Buffer")]
     private float coyoteTime = 0.13f;
@@ -293,62 +286,44 @@ public class CharacterControl : MonoBehaviour
         //FAST FALLING
         #region FastFalling; // causes player to fall faster than when they go up when jumping.
         // ----- CUSTOM GRAVITY PROFILE (shapes jump slope) -----
-        // ----- CUSTOM GRAVITY PROFILE (shapes jump slope) -----
-        if (!isDashing && !isWallGrabbing)
+        if (!isDashing && !isWallGrabbing)    // respect dash & wall grab overrides
         {
+            // Start from your base gravity
+            float targetGravity = baseGravity;
+
             float vy = rb.linearVelocity.y;
+            bool jumpHeld = Input.GetButton("Jump");
+            float vInput = Input.GetAxisRaw("Vertical");
 
-            // TICK DOWN HOVER TIMER
-            if (attackHoverTimer > 0f)
+            // Phase-based multipliers
+            if (vy > 0.01f) // ascending
             {
-                attackHoverTimer -= Time.deltaTime;
-                if (attackHoverTimer <= 0f) attackHoverTimer = 0f;
+                targetGravity *= ascendMult;
+
+                // Jump-cut: release early to get a shorter hop
+                if (!jumpHeld)
+                    targetGravity *= jumpCutMult;
+            }
+            else if (Mathf.Abs(vy) <= apexThreshold) // near apex
+            {
+                targetGravity *= apexMult;
+            }
+            else // descending
+            {
+                targetGravity *= descendMult;
+
+                // Fast-fall when holding down
+                if (vInput <= fastFallDownInput)
+                    targetGravity *= fastFallMult;
             }
 
-            // If we're in the hover window and descending, freeze descent
-            if (attackHoverTimer > 0f && vy <= 0f)
-            {
-                rb.gravityScale = 0f; // no additional downward accel
-                if (vy < hoverMaxFallSpeed)
-                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, hoverMaxFallSpeed);
-            }
-            else
-            {
-                // Normal profile (your existing tuning)
-                float targetGravity = baseGravity;
+            // Apply gravity scale
+            rb.gravityScale = targetGravity;
 
-                bool jumpHeld = Input.GetButton("Jump");
-                float vInput = Input.GetAxisRaw("Vertical");
-
-                if (vy > 0.01f)
-                {                        // ascending
-                    targetGravity *= ascendMult;
-                    if (!jumpHeld) targetGravity *= jumpCutMult;
-                }
-                else if (Mathf.Abs(vy) <= apexThreshold) // apex
-                {
-                    targetGravity *= apexMult;
-                }
-                else                                     // descending
-                {
-                    targetGravity *= descendMult;
-                    if (vInput <= fastFallDownInput)
-                        targetGravity *= fastFallMult;   // fast-fall ignored only if hover active
-                }
-
-                rb.gravityScale = targetGravity;
-            }
-
-            // Terminal velocity clamp still applies
+            // Terminal velocity clamp
             if (vy < terminalFallSpeed)
                 rb.linearVelocity = new Vector2(rb.linearVelocity.x, terminalFallSpeed);
-
-            // Kill hover the moment we touch ground
-            if (isGrounded && attackHoverTimer > 0f)
-                attackHoverTimer = 0f;
-
         }
-
         // ------------------------------------------------------
         #endregion
 
@@ -612,14 +587,5 @@ public class CharacterControl : MonoBehaviour
         // ensure full control at the end
         airInterpolant = 1f;
     }
-
-    public void StartAttackHover(float? duration = null)
-    {
-        // Only start if airborne and not in special movement overrides
-        if (isGrounded || isDashing || isWallGrabbing) return;
-        attackHoverTimer = Mathf.Max(attackHoverTimer, duration ?? attackHoverDuration);
-    }
-
-    public void CancelAttackHover() => attackHoverTimer = 0f;
 
 }
