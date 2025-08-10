@@ -111,7 +111,7 @@ MonoBehaviour:
   invulnerabilitiyTime: 0.2
   giveUpwardForce: 1
   maxHealthAmount: 200
-  currentHealth: 0
+  currentHealth: 200
   basicKnockBackPower: 200
   silhouetteMat: {fileID: 2100000, guid: 05722f48c300ef640ad9cd64701bc8d5, type: 2}
   whiteLengthFrames: 5
@@ -119,7 +119,7 @@ MonoBehaviour:
   currentBruise: 0
   bruiseCoolOffDelay: 2
   bruiseCoolOffRate: 3
-  flybackSpeed: 30
+  flybackSpeed: 40
   ricochetDamage: 30
   ricochetBruise: 50
   gaugeIsBroken: 0
@@ -202,10 +202,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   canBeKnockedBack: 1
   duration: 0.4
-  strength: 20
+  strength: 30
   forceCurve:
     serializedVersion: 2
     m_Curve:
+    - serializedVersion: 3
+      time: -0.0004335837
+      value: 2.9618022
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
     - serializedVersion: 3
       time: 0.020309448
       value: 2.9658556
@@ -216,13 +225,22 @@ MonoBehaviour:
       inWeight: 0
       outWeight: 0.15963492
     - serializedVersion: 3
-      time: 0.084083654
-      value: 0.032455064
-      inSlope: -120.08873
-      outSlope: -120.08873
+      time: 0.071220495
+      value: 0.013503648
+      inSlope: -0.64228415
+      outSlope: -0.64228415
       tangentMode: 0
       weightedMode: 0
       inWeight: 0.0531252
+      outWeight: 0.7115543
+    - serializedVersion: 3
+      time: 0.0996234
+      value: 0.008213639
+      inSlope: -0.307539
+      outSlope: -0.307539
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.9639158
       outWeight: 0
     m_PreInfinity: 2
     m_PostInfinity: 2
