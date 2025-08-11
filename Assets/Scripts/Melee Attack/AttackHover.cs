@@ -85,4 +85,12 @@ public class AttackHover : MonoBehaviour
         hovering = false;
         hoverCo = null;
     }
+
+    // End the current hover immediately
+    public void EndHoverNow()
+    {
+        if (!hovering) return;
+        hoverUntilTime = Time.time; // causes HoverRoutine() to restore physics next frame
+    }
+
 }

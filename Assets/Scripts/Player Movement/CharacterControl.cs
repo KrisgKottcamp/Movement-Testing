@@ -52,6 +52,10 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] private float maxAirSpeed = 12f;           // cap so it doesn't run away
     [SerializeField] private AttackHover hover; // player-side AttackHover
 
+    [Header("Bruise Break Air Jump")]
+    [SerializeField] private float bruiseBreakAirJumpWindow = 0.18f; // ~11 frames @60fps
+    private float bruiseBreakAirJumpCounter = 0f;
+
 
     [Header("Coyote & Buffer")]
     private float coyoteTime = 0.13f;
@@ -138,6 +142,10 @@ public class CharacterControl : MonoBehaviour
 
         //AIR INTERPOLANT
         airInterpolant = Mathf.Clamp01(airInterpolant + Time.deltaTime * airInterpolantchange);
+
+        //BRUISE BREAK JUMP WINDOW TIMER
+        if (bruiseBreakAirJumpCounter > 0f)
+            bruiseBreakAirJumpCounter -= Time.deltaTime;
     }
 
     private void FixedUpdate()
@@ -193,7 +201,6 @@ public class CharacterControl : MonoBehaviour
 
         rb.linearVelocity = new Vector2(newX, rb.linearVelocity.y);
     }
-
 
     //JUMP CONTROLLER
     public void JumpController()
@@ -271,12 +278,26 @@ public class CharacterControl : MonoBehaviour
         #endregion
 
 
+
         // CT & JB ACTIVATION
         #region CT/JBActivation;
-        if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
+        // Normal jump (coyote) OR special mid-air window after bruise break
+        if (jumpBufferCounter > 0f && (coyoteTimeCounter > 0f || bruiseBreakAirJumpCounter > 0f))
         {
             rb.linearVelocity = Vector2.up * jumpforce * missCompensation;
             jumpBufferCounter = 0f;
+
+            // If we used the mid-air window, consume it
+            if (coyoteTimeCounter <= 0f && bruiseBreakAirJumpCounter > 0f)
+                bruiseBreakAirJumpCounter = 0f;
+
+            if (hover != null && hover.IsHovering)
+            {
+                // End hover so gravity resumes; add this to AttackHover.cs:
+                if (hover != null && hover.IsHovering)
+                    hover.EndHoverNow();
+            }
+
         }
         if (jumpInput)
         {
@@ -343,7 +364,12 @@ public class CharacterControl : MonoBehaviour
 
     }
 
-
+    //JUMP BRUISE BREAK WINDOW
+    public void GrantBruiseBreakAirJump(float durationOverride = -1f)
+    {
+        float d = (durationOverride > 0f) ? durationOverride : bruiseBreakAirJumpWindow;
+        bruiseBreakAirJumpCounter = Mathf.Max(bruiseBreakAirJumpCounter, d);
+    }
 
 
     //WallSlide

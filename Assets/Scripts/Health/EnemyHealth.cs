@@ -27,7 +27,8 @@ public class EnemyHealth : MonoBehaviour
     [Header("Bruise Gauge")]
     [SerializeField] private float maxBruise = 100f;
     [SerializeField] private float currentBruise = 0f;
-    
+    public bool JustBrokeBruise { get; private set; } = false;
+
 
     [Header("Bruise Gauge Cooloff")]
     [SerializeField] private float bruiseCoolOffDelay = 2f;
@@ -128,10 +129,14 @@ public class EnemyHealth : MonoBehaviour
         currentBruise += bruiseDamage;
         lastHitDirection = hitDir.normalized;
         timeSinceLastHit = 0f;
+        JustBrokeBruise = false;
         CameraShakeManager.instance.CameraShake(impulseSource);
 
         if (currentBruise >= maxBruise && !gaugeIsBroken)
+        {
+            JustBrokeBruise = true;   // <— set the flag for this exact hit
             BruiseBreak();
+        }
         else if (!gaugeIsBroken)
         {
             rb.linearVelocity = Vector2.zero;

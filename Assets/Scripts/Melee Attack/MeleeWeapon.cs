@@ -134,6 +134,13 @@ public class MeleeWeapon : MonoBehaviour
         // 3) Handles Enemy Damage
         enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
 
+        // If this hit broke the gauge, grant a brief mid-air jump
+        if (enemy.JustBrokeBruise)
+        {
+            if (characterControl != null)
+                characterControl.GrantBruiseBreakAirJump(1f); // tweak in inspector if you like
+        }
+
         // bounce the player *away* from the enemy  
         Vector2 bounceDir = -hitDir;    // (hitDir points TOWARD the enemy, so invert it)
         characterControl.ApplyBounceBackForce(bounceDir * bounceBackForce);
