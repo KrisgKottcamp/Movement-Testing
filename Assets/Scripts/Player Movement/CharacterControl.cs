@@ -107,6 +107,16 @@ public class CharacterControl : MonoBehaviour
     private CinemachineImpulseSource impulseSource;
     #endregion
 
+    // --- Dash Cancel Input (NEW) ---
+    [Header("Dash Input (Cancel)")]
+    [SerializeField] private InputActionReference dashAction; // Optional: assign your Dash action (Input System)
+                                                              // Legacy fallback (leave off unless you have "Dash" in the old Input Manager):
+    [SerializeField] private bool legacyDashCancel = false;
+    [SerializeField] private string legacyDashButton = "Dash";
+
+    private Coroutine dashStopRoutine;  // track running StopDashing coroutine
+    private bool dashHeld = false;      // current hold state (Input System)
+
     [Header("Bounce-Back (for attack swing)")]
     [SerializeField]
     public float bounceBackLerpTime = 0.2f;
@@ -146,6 +156,13 @@ public class CharacterControl : MonoBehaviour
         //BRUISE BREAK JUMP WINDOW TIMER
         if (bruiseBreakAirJumpCounter > 0f)
             bruiseBreakAirJumpCounter -= Time.deltaTime;
+
+
+        if (legacyDashCancel && isDashing && Input.GetButtonUp(legacyDashButton))
+        {
+            CancelDash();
+        }
+
     }
 
     private void FixedUpdate()
@@ -520,73 +537,115 @@ public class CharacterControl : MonoBehaviour
     {
         dashInput = true;
     }
+    public void OnDashStarted() { dashHeld = true; dashInput = true; }
+    public void OnDashCanceled() { dashHeld = false; if (isDashing) CancelDash(); }
+
+    private void OnEnable()
+    {
+        if (dashAction != null)
+        {
+            dashAction.action.started += OnDashStarted_IS;
+            dashAction.action.canceled += OnDashCanceled_IS;
+            dashAction.action.Enable();
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (dashAction != null)
+        {
+            dashAction.action.started -= OnDashStarted_IS;
+            dashAction.action.canceled -= OnDashCanceled_IS;
+            dashAction.action.Disable();
+        }
+    }
+
+    private void OnDashStarted_IS(InputAction.CallbackContext ctx)
+    {
+        dashHeld = true;
+        dashInput = true; // kick off dash
+    }
+
+    private void OnDashCanceled_IS(InputAction.CallbackContext ctx)
+    {
+        dashHeld = false;
+        if (isDashing) CancelDash();
+    }
 
 
     private void Dashing()
     {
-
-
         if (dashInput && canDash)
         {
-            CameraShakeManager.instance.CameraShake(impulseSource);
             isDashing = true;
             canDash = false;
+
             dashingDir = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized;
 
-            //If the player is not moving, the dash direction defaults to forward.
+            // If the player is not moving, dash defaults forward (facing)
             if (dashingDir == Vector2.zero)
             {
                 dashingDir = new Vector2(transform.localScale.x, 0);
             }
-            StartCoroutine(StopDashing());
 
+            // start the timed stop; keep a handle so we can cancel early
+            if (dashStopRoutine != null) StopCoroutine(dashStopRoutine);
+            dashStopRoutine = StartCoroutine(StopDashing());
+
+            dashInput = false; // consume the press
         }
-
 
         if (isDashing)
         {
-
             rb.linearVelocity = dashingDir.normalized * dashingSpeed;
             rb.gravityScale = 0;
             airInterpolant = .5f;
-            dashInput = false;
+            // NOTE: early return keeps dash velocity for the duration
             return;
         }
+
         if (isGrounded)
         {
             canDash = true;
-            if (hover == null || !hover.IsHovering)
-                rb.gravityScale = baseGravity;
+            rb.gravityScale = baseGravity;
         }
 
+        // Hit a wall? End dash immediately
         if (!canDash && Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer))
         {
-
-            StartCoroutine(StopDashing());
-
+            CancelDash(); // immediate stop on wall contact
         }
     }
+
 
     private IEnumerator StopDashing()
     {
         yield return new WaitForSeconds(dashingTime);
+        dashStopRoutine = null;
         isDashing = false;
         rb.linearVelocity *= 0f;
-        if (hover == null || !hover.IsHovering)
-            rb.gravityScale = baseGravity;
-
-    }
-    [SerializeField]
-    public bool isPogoBouncing = false;
-    public void ApplyPogoForce(Vector2 force)
-    {
         rb.gravityScale = baseGravity;
-        // 1) reset any vertical speed so every bounce starts from zero
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
-        // 2) apply the �gpogo�h as an instantaneous impulse
-        rb.AddForce(force, ForceMode2D.Impulse);
-
     }
+
+    private void CancelDash()
+    {
+        if (!isDashing) return;
+
+        // Stop the pending timed stop, if any
+        if (dashStopRoutine != null)
+        {
+            StopCoroutine(dashStopRoutine);
+            dashStopRoutine = null;
+        }
+
+        isDashing = false;
+        rb.linearVelocity *= 0f;     // end immediately with no carry
+        rb.gravityScale = baseGravity;
+
+        // Keep canDash = false; Your existing logic re-enables it when grounded.
+        // (This preserves your one-dash-per-airborne-intent rule.)
+    }
+
     public void ApplyBounceBackForce(Vector2 force)
     {
         Debug.Log("Bounce Back!");
@@ -617,5 +676,19 @@ public class CharacterControl : MonoBehaviour
         // ensure full control at the end
         airInterpolant = 1f;
     }
+
+
+    [SerializeField]
+    public bool isPogoBouncing = false;
+    public void ApplyPogoForce(Vector2 force)
+    {
+        rb.gravityScale = baseGravity;
+        // 1) reset any vertical speed so every bounce starts from zero
+        rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
+        // 2) apply the �gpogo�h as an instantaneous impulse
+        rb.AddForce(force, ForceMode2D.Impulse);
+
+    }
+
 
 }

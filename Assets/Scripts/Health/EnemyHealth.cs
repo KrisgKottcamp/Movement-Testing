@@ -1,70 +1,60 @@
 ﻿using System.Collections;
-using Unity.VisualScripting;
 using UnityEngine;
-using Unity.Cinemachine;
-using UnityEngine.UIElements;
-
+using Unity.Cinemachine; // for CinemachineImpulseSource
 
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(TrailRenderer))]
 public class EnemyHealth : MonoBehaviour
 {
+    [Header("Toggles")]
     [SerializeField] private bool damageable = true;
-    [SerializeField] private float invulnerabilitiyTime = .2f;
+    [SerializeField] private float invulnerabilitiyTime = 0.20f;
     public bool giveUpwardForce = true;
     private bool hit;
-    
+
     [Header("Health Gauge")]
     [SerializeField] private int maxHealthAmount = 100;
     public int currentHealth;
-    [SerializeField] private float basicKnockBackPower;
+    [SerializeField] private float basicKnockBackPower = 0f;
 
     [Header("White Flash Settings")]
     public Material silhouetteMat;
     private Material originalMat;
     private SpriteRenderer sr;
-    [SerializeField] private int whiteLengthFrames;
+    [SerializeField] private int whiteLengthFrames = 2;
 
     [Header("Bruise Gauge")]
     [SerializeField] private float maxBruise = 100f;
     [SerializeField] private float currentBruise = 0f;
     public bool JustBrokeBruise { get; private set; } = false;
 
-
     [Header("Bruise Gauge Cooloff")]
-    [SerializeField] private float bruiseCoolOffDelay = 2f;
-    [SerializeField] private float bruiseCoolOffRate = 1f;
+    [SerializeField] private float bruiseCoolOffDelay = 1.2f;
+    [SerializeField] private float bruiseCoolOffRate = 20f;
     private float timeSinceLastHit = 0f;
 
     [Header("Flyback Settings")]
-    [SerializeField] private float flybackSpeed = 10f;
+    [SerializeField] private float flybackSpeed = 18f;
     [SerializeField] private int ricochetDamage = 10;
-    [SerializeField] private int ricochetBruise = 20;
+    [SerializeField] private int ricochetBruise = 30;
     [SerializeField] private bool gaugeIsBroken = false;
     private Vector2 lastHitDirection;
 
     private Rigidbody2D rb;
-    [SerializeField] private float EnemyMass;
-    
+    [SerializeField] private float EnemyMass = 1f;
 
     [Header("Bounce FX")]
-    [Tooltip("Baseline physics material before break")]
     public PhysicsMaterial2D defaultMaterial;
-    [Tooltip("High‑bounce material applied on break")]
     public PhysicsMaterial2D highBounceMaterial;
     private Collider2D col;
 
     [Header("Flyback Curve")]
-    [Tooltip("Duration of each flyback curve segment")]
-    public float flybackDuration = 0.5f;
-    [Tooltip("Speed multiplier curve over time (0‑1)")]
-    public AnimationCurve flybackCurve = new AnimationCurve(
-        new Keyframe(0f, 1f),
-        new Keyframe(0.2f, 1f),
-        new Keyframe(1f, 0f)
-    );
+    [SerializeField] private float flybackDuration = 0.45f;
+    [SerializeField]
+    private AnimationCurve flybackCurve =
+        new AnimationCurve(new Keyframe(0, 1.00f), new Keyframe(0.35f, 1.15f), new Keyframe(1f, 0.85f));
 
     [Header("Ricochet OverlapBox Settings")]
-    [SerializeField] private Vector2 overlapBoxSize = new Vector2(1f, 1f);
+    [SerializeField] private Vector2 overlapBoxSize = new Vector2(1.0f, 1.0f);
     [SerializeField] private float overlapBoxAngle = 0f;
     [SerializeField] private LayerMask bounceLayers;
 
@@ -80,75 +70,77 @@ public class EnemyHealth : MonoBehaviour
     [SerializeField] private GameObject bruiseBreakVFX;
     [SerializeField] private GameObject enemyDeathVFX;
 
+    // Camera director (nudge version)
+    private CameraDirectorCM3 cam;
 
     void Start()
     {
         currentHealth = maxHealthAmount;
         currentBruise = 0f;
+
         rb = GetComponent<Rigidbody2D>();
         rb.mass = EnemyMass;
+
         enemyTrail = GetComponent<TrailRenderer>();
         enemyTrail.enabled = false;
+
         col = GetComponent<Collider2D>();
         col.sharedMaterial = defaultMaterial;
+
         sr = GetComponent<SpriteRenderer>();
-        originalMat = sr.material;
+        originalMat = sr != null ? sr.material : null;
+
         impulseSource = GetComponent<CinemachineImpulseSource>();
 
+        cam = FindObjectOfType<CameraDirectorCM3>();
     }
 
     void Update()
     {
-        // Bruise cooldown decay
         if (currentBruise > 0f)
         {
-            if (timeSinceLastHit < bruiseCoolOffDelay)
-                timeSinceLastHit += Time.deltaTime;
-            else
+            timeSinceLastHit += Time.deltaTime;
+            if (!gaugeIsBroken && timeSinceLastHit >= bruiseCoolOffDelay)
                 currentBruise = Mathf.Max(0f, currentBruise - bruiseCoolOffRate * Time.deltaTime);
         }
-
-        // Reset mass after vertical motion stops
-        if (Mathf.Approximately(rb.linearVelocity.y, 0f))
-            rb.mass = EnemyMass;
-        
-    }
-
-    private IEnumerator TurnOffHit()
-    {
-        yield return new WaitForSeconds(invulnerabilitiyTime);
-        hit = false;
     }
 
     public void Damage(int hpDamage, int bruiseDamage, Vector2 hitDir)
     {
         if (!damageable || hit || currentHealth <= 0) return;
-        
+
         hit = true;
         currentHealth -= hpDamage;
         currentBruise += bruiseDamage;
-        lastHitDirection = hitDir.normalized;
+
+        lastHitDirection = hitDir.sqrMagnitude > 0.0001f ? hitDir.normalized : Vector2.right;
         timeSinceLastHit = 0f;
         JustBrokeBruise = false;
-        CameraShakeManager.instance.CameraShake(impulseSource);
+
+        // Small camera tap on EVERY hit (faces where the enemy will fly)
+        cam?.NotifyHit(lastHitDirection, 1f);
+
+        // Small impulse for normal hits
+        if (impulseSource) CameraShakeManager.instance.CameraShake(impulseSource);
 
         if (currentBruise >= maxBruise && !gaugeIsBroken)
         {
-            JustBrokeBruise = true;   // <— set the flag for this exact hit
+            JustBrokeBruise = true;
             BruiseBreak();
         }
-        else if (!gaugeIsBroken)
+        else
         {
-            rb.linearVelocity = Vector2.zero;
             var kb = GetComponent<KnockbackController>();
             if (kb != null)
                 kb.TriggerKnockback(lastHitDirection);
         }
 
         if (currentHealth <= 0)
+        {
             Die();
-        else
-        
+            return;
+        }
+
         StartCoroutine(FlashWhite(whiteLengthFrames));
         StartCoroutine(TurnOffHit());
     }
@@ -157,68 +149,55 @@ public class EnemyHealth : MonoBehaviour
     {
         gaugeIsBroken = true;
         BruiseBreakFX();
-        rb.mass = 1f;
-        StopAllCoroutines();
-        CameraShakeManager.instance.CameraShake(impulseSource);
+
+        rb.mass = 1f;                   // lighter for pinball
         rb.angularDamping = 0f;
         rb.linearDamping = 0f;
+
+        StopAllCoroutines();
+        if (impulseSource) CameraShakeManager.instance.CameraShake(impulseSource);
+
         col.sharedMaterial = highBounceMaterial;
+        enemyTrail.enabled = true;
+
+        // Big camera push once on break
+        float initialMul = flybackCurve != null ? flybackCurve.Evaluate(0f) : 1f;
+        cam?.NotifyBruiseBreak(transform, lastHitDirection.normalized, flybackSpeed * initialMul);
+
+        if (flybackCoroutine != null) StopCoroutine(flybackCoroutine);
         flybackCoroutine = StartCoroutine(DoFlyback(lastHitDirection));
     }
 
     private void BruiseBreakFX()
     {
-        if (bruiseBreakVFX == null)
-            return;
-
-        // Spawn the VFX prefab at the enemy’s position
+        if (!bruiseBreakVFX) return;
         var vfxInstance = Instantiate(bruiseBreakVFX, transform.position, Quaternion.identity);
-
-        // Find the ParticleSystem (even if it’s on a child) and trigger it
         var ps = vfxInstance.GetComponentInChildren<ParticleSystem>();
         if (ps != null)
         {
-            // Force single‑play
-            var main = ps.main;
-            main.loop = false;
-
-            ps.Clear();  // reset any old particles
-            ps.Play();   // fire the burst
-
-            // Compute how long it needs to live (duration + longest startLifetime)
+            var main = ps.main; main.loop = false;
+            ps.Clear(); ps.Play();
             float lifetime = main.duration + main.startLifetime.constantMax;
-
-            // Destroy this VFX object after it’s done
             Destroy(vfxInstance, lifetime);
         }
-
-        // Re‑enable any trailing effects if used
-        enemyTrail.enabled = true;
     }
 
     private IEnumerator DoFlyback(Vector2 direction)
     {
-        // Switch layer if needed
         gameObject.layer = LayerMask.NameToLayer("Broken Enemy");
-        currentFlybackDir = direction.normalized;
 
+        currentFlybackDir = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.right;
         float timer = 0f;
 
-        // Continue bouncing until death
         while (gaugeIsBroken && currentHealth > 0)
         {
-            // Apply curve-based velocity
-            float t = timer / flybackDuration;
-            float speedMul = flybackCurve.Evaluate(t);
+            float t = flybackDuration > 0f ? (timer / flybackDuration) : 1f;
+            float speedMul = flybackCurve != null ? flybackCurve.Evaluate(t) : 1f;
+
             rb.linearVelocity = currentFlybackDir * flybackSpeed * speedMul;
 
-            // Check for bounce surfaces
             var surfaceHits = Physics2D.OverlapBoxAll(
-                transform.position,
-                overlapBoxSize,
-                overlapBoxAngle,
-                bounceLayers
-            );
+                transform.position, overlapBoxSize, overlapBoxAngle, bounceLayers);
 
             foreach (var surf in surfaceHits)
             {
@@ -227,19 +206,15 @@ public class EnemyHealth : MonoBehaviour
 
                 if (Vector2.Dot(currentFlybackDir, normal) < 0f)
                 {
-                    // Self-damage on bounce
                     currentHealth = Mathf.Max(0, currentHealth - ricochetDamage);
-                    currentBruise += ricochetBruise;
+                    currentBruise = Mathf.Min(maxBruise, currentBruise + ricochetBruise);
                     StartCoroutine(FlashWhite(whiteLengthFrames));
+
                     if (currentHealth <= 0) { Die(); yield break; }
 
-                    // Damage other enemies in the box
                     var others = Physics2D.OverlapBoxAll(
-                        transform.position,
-                        overlapBoxSize,
-                        overlapBoxAngle,
-                        enemyLayers
-                    );
+                        transform.position, overlapBoxSize, overlapBoxAngle, enemyLayers);
+
                     foreach (var colHit in others)
                     {
                         if (colHit.gameObject == gameObject) continue;
@@ -247,7 +222,6 @@ public class EnemyHealth : MonoBehaviour
                             eHealth.Damage(ricochetDamage, ricochetBruise, currentFlybackDir);
                     }
 
-                    // Reflect direction and reset curve timer
                     currentFlybackDir = Vector2.Reflect(currentFlybackDir, normal);
                     timer = 0f;
                     break;
@@ -258,7 +232,6 @@ public class EnemyHealth : MonoBehaviour
             yield return null;
         }
 
-        // Restore defaults
         col.sharedMaterial = defaultMaterial;
         enemyTrail.enabled = false;
         gaugeIsBroken = false;
@@ -266,54 +239,43 @@ public class EnemyHealth : MonoBehaviour
 
     public IEnumerator FlashWhite(int frameCount)
     {
-        // swap to the all‑white silhouette material
+        if (sr == null || silhouetteMat == null || originalMat == null) yield break;
         sr.material = silhouetteMat;
-
-        // hold it for the specified number of frames
-        for (int i = 0; i < frameCount; i++)
-            yield return null;
-
-        // restore the original material
+        for (int i = 0; i < Mathf.Max(1, frameCount); i++) yield return null;
         sr.material = originalMat;
     }
 
-    private void OnDrawGizmosSelected()
+    private IEnumerator TurnOffHit()
     {
-        Gizmos.color = Color.cyan;
-        Gizmos.matrix = Matrix4x4.TRS(
-            transform.position,
-            Quaternion.Euler(0f, 0f, overlapBoxAngle),
-            Vector3.one
-        );
-        Gizmos.DrawWireCube(Vector3.zero, overlapBoxSize);
+        yield return new WaitForSeconds(invulnerabilitiyTime);
+        hit = false;
     }
 
     private void Die()
     {
         currentHealth = 0;
 
-        // Spawn the VFX prefab at the enemy’s position
-        var vfxInstance = Instantiate(enemyDeathVFX, transform.position, Quaternion.identity);
-
-        // Find the ParticleSystem (even if it’s on a child) and trigger it
-        var ps = vfxInstance.GetComponentInChildren<ParticleSystem>();
-        if (ps != null)
+        if (enemyDeathVFX)
         {
-            // Force single‑play
-            var main = ps.main;
-            main.loop = false;
-
-            ps.Clear();  // reset any old particles
-            ps.Play();   // fire the burst
-
-            // Compute how long it needs to live (duration + longest startLifetime)
-            float lifetime = main.duration + main.startLifetime.constantMax;
-
-            // Destroy this VFX object after it’s done
-            Destroy(vfxInstance, lifetime);
+            var vfxInstance = Instantiate(enemyDeathVFX, transform.position, Quaternion.identity);
+            var ps = vfxInstance.GetComponentInChildren<ParticleSystem>();
+            if (ps != null)
+            {
+                var main = ps.main; main.loop = false;
+                ps.Clear(); ps.Play();
+                float lifetime = main.duration + main.startLifetime.constantMax;
+                Destroy(vfxInstance, lifetime);
+            }
         }
 
-        gameObject.SetActive(false); //Deletes Enemy
+        gameObject.SetActive(false);
+    }
 
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = new Color(1f, 0.92f, 0.16f, 0.35f);
+        Matrix4x4 rot = Matrix4x4.TRS(transform.position, Quaternion.Euler(0, 0, overlapBoxAngle), Vector3.one);
+        Gizmos.matrix = rot;
+        Gizmos.DrawWireCube(Vector3.zero, overlapBoxSize);
     }
 }
