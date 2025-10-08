@@ -1,96 +1,131 @@
 using System.Collections;
 using UnityEngine;
 
+[DisallowMultipleComponent]
+[RequireComponent(typeof(Rigidbody2D))]
 public class AttackHover : MonoBehaviour
 {
-    [Header("Defaults (can be overridden per call)")]
-    [Tooltip("If true, we zero only the Y velocity on hover start (keep X drift).")]
+    [Header("Hover Tuning")]
+    [Tooltip("Default hover time for BeginHoverDefault().")]
+    [Min(0f)][SerializeField] private float defaultHoverDuration = 0.20f;
+
+    [Tooltip("Zero only the vertical velocity at start so you stop falling immediately.")]
     [SerializeField] private bool zeroVerticalVelocityOnStart = true;
-    [Tooltip("Optional horizontal drag during hover (<=0 means keep current).")]
+
+    [Tooltip("Optional temporary drag while hovering. <= 0 = leave unchanged.")]
     [SerializeField] private float horizontalDragDuringHover = 0f;
-    [Tooltip("Freeze rotation during hover (useful for ragdolly enemies).")]
+
+    [Tooltip("Freeze rotation during hover.")]
     [SerializeField] private bool freezeRotationDuringHover = false;
 
+    [Header("Debug")]
+    [SerializeField] private bool debugLog = false;
+
     private Rigidbody2D rb;
-    private float baseGravity;
+    private float baseGravityScale;
     private float baseDrag;
-    private bool hadFrozenRotation;
-    private float hoverUntilTime = -1f;
+    private bool baseFreezeRotation;
+
     private bool hovering;
-    private Coroutine hoverCo;
+    private float hoverEndUnscaledTime = -1f;  // runs through hit-stop
+    private Coroutine hoverRoutine;
+
     public bool IsHovering => hovering;
 
-    void Awake()
+    private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-        if (!rb) Debug.LogError($"{name}: AttackHover requires a Rigidbody2D.");
     }
 
-    /// <summary>
-    /// Start/extend a hover. If called again while hovering, it extends the end time.
-    /// </summary>
-    /// <param name="duration">Seconds to hover.</param>
-    /// <param name="zeroYOnStart">Override for zeroing Y velocity at start.</param>
-    /// <param name="overrideHorizontalDrag">If set, applies this drag during hover.</param>
-    public void BeginHover(float duration, bool? zeroYOnStart = null, float? overrideHorizontalDrag = null)
+    private void OnDisable()
+    {
+        if (hovering) RestorePhysics();
+        hovering = false;
+        hoverRoutine = null;
+    }
+
+    public void SetDefaultHoverDuration(float seconds) => defaultHoverDuration = Mathf.Max(0f, seconds);
+    public void BeginHoverDefault() => BeginHover(defaultHoverDuration);
+
+    // Backward-compatible signature used by your MeleeWeapon:
+    // BeginHover(duration, zeroYOnStart:true, overrideHorizontalDrag:null)
+    public void BeginHover(float duration, bool? zeroYOnStart, float? overrideHorizontalDrag)
+    {
+        // apply per-call overrides, then run core
+        bool prevZero = zeroVerticalVelocityOnStart;
+        float prevDrag = horizontalDragDuringHover;
+
+        if (zeroYOnStart.HasValue) zeroVerticalVelocityOnStart = zeroYOnStart.Value;
+        if (overrideHorizontalDrag.HasValue) horizontalDragDuringHover = overrideHorizontalDrag.Value;
+
+        BeginHover(duration);  // core path below
+
+        // restore tunables so next call uses component defaults again
+        zeroVerticalVelocityOnStart = prevZero;
+        horizontalDragDuringHover = prevDrag;
+    }
+
+    // Core path (also used by BeginHoverDefault)
+    public void BeginHover(float duration)
     {
         if (!rb || duration <= 0f) return;
 
-        // On first entry, capture base values
+        // First entry -> capture & apply hover physics
         if (!hovering)
         {
-            baseGravity = rb.gravityScale;
+            baseGravityScale = rb.gravityScale;
             baseDrag = rb.linearDamping;
-
-            if (freezeRotationDuringHover)
-            {
-                hadFrozenRotation = (rb.constraints & RigidbodyConstraints2D.FreezeRotation) != 0;
-                rb.constraints |= RigidbodyConstraints2D.FreezeRotation;
-            }
+            baseFreezeRotation = rb.freezeRotation;
 
             rb.gravityScale = 0f;
 
-            bool zeroY = zeroYOnStart ?? zeroVerticalVelocityOnStart;
-            if (zeroY)
+            if (zeroVerticalVelocityOnStart)
             {
-                var v = rb.linearVelocity; // if your code uses rb.linearVelocity, swap it in here
+                var v = rb.linearVelocity;
                 v.y = 0f;
                 rb.linearVelocity = v;
             }
 
-            float drag = overrideHorizontalDrag.HasValue ? overrideHorizontalDrag.Value : horizontalDragDuringHover;
-            if (drag > 0f) rb.linearDamping = drag;
+            if (horizontalDragDuringHover > 0f)
+                rb.linearDamping = horizontalDragDuringHover;
+
+            if (freezeRotationDuringHover)
+                rb.freezeRotation = true;
 
             hovering = true;
+            if (debugLog) Debug.Log($"[AttackHover] START at {Time.unscaledTime:F3} for {duration:F3}s");
         }
 
-        // Extend the hover window
-        float newUntil = Time.time + duration;
-        if (newUntil > hoverUntilTime) hoverUntilTime = newUntil;
+        // Extend end time (unscaled so hit-stop doesn�ft shorten it)
+        float newEnd = Time.unscaledTime + duration;
+        if (newEnd > hoverEndUnscaledTime)
+            hoverEndUnscaledTime = newEnd;
 
-        // Single keeper coroutine that waits until hover window elapses
-        if (hoverCo == null) hoverCo = StartCoroutine(HoverRoutine());
+        if (hoverRoutine == null)
+            hoverRoutine = StartCoroutine(HoverLoop());
     }
 
-    private IEnumerator HoverRoutine()
-    {
-        while (Time.time < hoverUntilTime) yield return null;
-        // Restore original physics
-        rb.gravityScale = baseGravity;
-        rb.linearDamping = baseDrag;
-
-        if (freezeRotationDuringHover && !hadFrozenRotation)
-            rb.constraints &= ~RigidbodyConstraints2D.FreezeRotation;
-
-        hovering = false;
-        hoverCo = null;
-    }
-
-    // End the current hover immediately
     public void EndHoverNow()
     {
         if (!hovering) return;
-        hoverUntilTime = Time.time; // causes HoverRoutine() to restore physics next frame
+        hoverEndUnscaledTime = Time.unscaledTime; // exit next frame
     }
 
+    private IEnumerator HoverLoop()
+    {
+        while (Time.unscaledTime < hoverEndUnscaledTime)
+            yield return null;
+
+        if (debugLog) Debug.Log($"[AttackHover] END at {Time.unscaledTime:F3}");
+        RestorePhysics();
+        hovering = false;
+        hoverRoutine = null;
+    }
+
+    private void RestorePhysics()
+    {
+        rb.gravityScale = baseGravityScale;
+        rb.linearDamping = baseDrag;
+        rb.freezeRotation = baseFreezeRotation;
+    }
 }

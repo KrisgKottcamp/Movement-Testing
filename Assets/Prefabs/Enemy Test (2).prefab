@@ -17,6 +17,8 @@ GameObject:
   - component: {fileID: 2623020923735262396}
   - component: {fileID: 4131632262653362653}
   - component: {fileID: 7969306321097661446}
+  - component: {fileID: -7717355056488005720}
+  - component: {fileID: -8899130489333328577}
   m_Layer: 8
   m_Name: Enemy Test (2)
   m_TagString: Untagged
@@ -64,7 +66,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  - {fileID: 2100000, guid: 179ed8b82ea9c6142a24c46da3633b63, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -85,7 +87,7 @@ SpriteRenderer:
   m_SortingLayerID: 1759089355
   m_SortingLayer: 3
   m_SortingOrder: 1
-  m_Sprite: {fileID: 21300000, guid: de9c3c66e1aff914d9696b7e832e8fa9, type: 3}
+  m_Sprite: {fileID: 8980036744526361479, guid: b187e4d8098c0a04b88dafea4e60bcbf, type: 3}
   m_Color: {r: 1, g: 0, b: 0.069642544, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -111,20 +113,20 @@ MonoBehaviour:
   damageable: 1
   invulnerabilitiyTime: 0.2
   giveUpwardForce: 1
-  maxHealthAmount: 200
+  maxHealthAmount: 150
   currentHealth: 0
   basicKnockBackPower: 200
   silhouetteMat: {fileID: 2100000, guid: 05722f48c300ef640ad9cd64701bc8d5, type: 2}
   whiteLengthFrames: 5
-  maxBruise: 79
+  maxBruise: 100
   currentBruise: 0
   bruiseCoolOffDelay: 2
-  bruiseCoolOffRate: 3
-  flybackSpeed: 40
-  ricochetDamage: 30
-  ricochetBruise: 50
+  bruiseCoolOffRate: 20
+  flybackSpeed: 100
+  ricochetDamage: 999
+  ricochetBruise: 999
   gaugeIsBroken: 0
-  EnemyMass: 50
+  EnemyMass: 1
   defaultMaterial: {fileID: 6200000, guid: abf832e4da85cbc4089d28fada14403f, type: 2}
   highBounceMaterial: {fileID: 6200000, guid: e441ef281991a724ab0c828858633621, type: 2}
   flybackDuration: 0.2
@@ -183,10 +185,14 @@ MonoBehaviour:
   overlapBoxAngle: 0
   bounceLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 456
   enemyLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 456
+  enemyDominoEnabled: 1
+  enemyHitRadius: 0.6
+  enemyHitPadding: 0.05
+  enemyHitCooldown: 0.08
   bruiseBreakVFX: {fileID: 6315590128267040425}
   enemyDeathVFX: {fileID: 5607569646699745655}
 --- !u!114 &3241308218776243620
@@ -201,33 +207,67 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5283b130e155c849898bc183136136a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rb: {fileID: 7086086301614636735}
+  colliders: []
+  primaryCollider: {fileID: 0}
+  lockZRotation: 1
+  noFrictionMaterial: {fileID: 6200000, guid: e441ef281991a724ab0c828858633621, type: 2}
   canBeKnockedBack: 1
-  duration: 0.6
-  strength: 35
+  duration: 1
+  strength: 40
   forceCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
-      time: 0.020309448
-      value: 2.9658556
-      inSlope: 0.8098589
-      outSlope: 0.8098589
+      time: 0
+      value: 1.9908721
+      inSlope: 0
+      outSlope: 0
       tangentMode: 0
       weightedMode: 0
       inWeight: 0
-      outWeight: 0.15963492
+      outWeight: 0
     - serializedVersion: 3
-      time: 0.05324564
-      value: 0.050124742
-      inSlope: -120.08873
-      outSlope: -120.08873
+      time: 0.10217533
+      value: 0
+      inSlope: -45.74284
+      outSlope: -45.74284
       tangentMode: 0
       weightedMode: 0
-      inWeight: 0.0531252
+      inWeight: 0.030546589
       outWeight: 0
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  preserveY: 0
+  finisherSpeed: 30
+  finisherMinLiftY: 8
+  finisherDuration: 0.45
+  clampHorizontalSign: 1
+  signLockDuration: 0.25
+  bounceUpOnWall: 1
+  wallMask:
+    serializedVersion: 2
+    m_Bits: 192
+  wallProbeSize: {x: 2.97, y: 1}
+  wallProbeForward: 0
+  wallProbeYOffset: 0
+  probeAutoHeightFromCollider: 1
+  probeHeightMultiplier: 0.7
+  maxWallBouncesPerLaunch: 1
+  wallNormalMinX: 0.7
+  minImpactSpeed: -1
+  upwardBaseVelocity: 30
+  upwardFromHorizFactor: 0.6
+  xDampenAfterBounce: 0.15
+  lateralOutPush: 0
+  wallBounceCooldown: 0.08
+  limitPopToEarlyWindow: 0
+  popEarlyWindow: 0.25
+  allowEarlyPopNoSpeed: 1
+  earlyPopWindow: 0.12
+  minOverlapDepth: 0.01
+  suppressCurveXAfterPop: 0.15
 --- !u!114 &7223317593935923080
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -240,9 +280,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79db3f304054bd949b5f6690208af06a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  defaultHoverDuration: 0.2
   zeroVerticalVelocityOnStart: 1
   horizontalDragDuringHover: 9
   freezeRotationDuringHover: 1
+  debugLog: 0
 --- !u!50 &7086086301614636735
 Rigidbody2D:
   serializedVersion: 5
@@ -266,7 +308,7 @@ Rigidbody2D:
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_SleepingMode: 0
   m_CollisionDetection: 1
   m_Constraints: 4
@@ -308,7 +350,7 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 2.25, y: 2.5}
+    oldSize: {x: 2.5, y: 2.5}
     newSize: {x: 2.25, y: 2.5}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -485,6 +527,62 @@ MonoBehaviour:
     DissipationDistance: 100
     PropagationSpeed: 343
   DefaultVelocity: {x: 0, y: 0.09, z: 0}
+--- !u!114 &-7717355056488005720
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5456934690996795604}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70b92879daecca44eae182fad35c95d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  health: {fileID: 4067822762346690589}
+  playerWeapon: {fileID: 0}
+  manualBruisePerHit: 1
+  flashSpeed: 8
+  propBruise: _Bruise01
+  propFlashOn: _FlashOn
+  propFlashSpd: _FlashSpeed
+--- !u!70 &-8899130489333328577
+CapsuleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5456934690996795604}
+  m_Enabled: 0
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_Size: {x: 2.5, y: 2.5}
+  m_Direction: 0
 --- !u!1 &5607569646699745655
 GameObject:
   m_ObjectHideFlags: 0

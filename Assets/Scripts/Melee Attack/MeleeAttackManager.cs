@@ -1,41 +1,85 @@
-﻿using UnityEditor.Tilemaps;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// Original flow + 3–hit combo wiring (compatible with MeleeWeapon).
+/// - Keeps public fields: `raw` and `meleeAttackDir`
+/// - Triggers player 5-direction states exactly like before
+/// - Drives weapon swipe with ComboStage (1/2/3) + PlaySwipe
+/// </summary>
 public class MeleeAttackManager : MonoBehaviour
 {
-    //How much movement force should be applied to the player DOWNWARD or HORIZONTALLY when a melee attack collides with a GameObject.
-    public float defaultForce = 30f;
-    //How much movement force should be applied to the player UPWARD when a melee attack collides with a GameObject with a downward strike attack.
-    public float upwardsForce = 0f;
-    //How long the player should move when the melee attack collides with a GameObject with an EnemyHealth script attached.
-    public float attackMovementTime = 1f;
-    //Receives input from Unity Input System
+    // ------- ORIGINAL SURFACE (kept for compatibility) -------
     private bool meleeAttackInput;
-    //Just checks to see if an input is being pressed for a melee attack.
     private bool meleeAttack;
-    //Is the direction the player is attacking.
-    public Vector2 meleeAttackDir;
-    //Reference to the animator component on the melee weapon itself.
-    private Animator meleeAnimator;
-    //The Animator Component on the player
-    private Animator anim;
-    //The CharacterControl script on the player; pulled to access the grounded state.
+    public Vector2 meleeAttackDir;  // (±1,0) or (±1,±1)
+    public Vector2 raw;             // (-1..1 per axis), used by MeleeWeapon
+
+    private Animator meleeAnimator; // weapon swipe animator
+    private Animator anim;          // player animator
     private CharacterControl characterControl;
 
-    public Vector2 raw;
-
-    [SerializeField] private Transform weaponPivot;   // assign = meleeAnimator.transform in Inspector
-    [SerializeField] private float swipeReach = 1.0f; // how far from the player the swipe sits
+    [Header("Swipe Placement")]
+    [SerializeField] private Transform weaponPivot;
+    [SerializeField] private float swipeReach = 1.0f;
     [SerializeField] private bool cancelParentFlip = true;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    [Header("Optional Stickiness Pull")]
+    [SerializeField] private AttackStickinessController stickiness;
+
+    // ---------------- NEW: Combo knobs ----------------
+    [Header("Combo")]
+    [Tooltip("Max seconds allowed between presses to continue the 3-hit chain.")]
+    [SerializeField] private float comboWindow = 0.40f;
+    [Tooltip("Short lockout after the third swing (or when the chain ends).")]
+    [SerializeField] private float comboCooldown = 0.45f;
+
+    private int swingIndex = 1;       // 1 -> 2 -> 3 -> 1
+    private float comboUntil = -1f;     // Time.time deadline to continue chain
+    private bool inComboCooldown;
+    private float comboCooldownUntil;
+    private int _latchedStage;        // stage for THIS swing
+
+    // Animator param hash
+    static readonly int ANIM_AttackLocked = Animator.StringToHash("AttackLocked");
+
+    // Simple one-deep queue
+    private bool queuedAttack = false;
+    private int queuedStage = 1;
+    private Vector2 queuedDir = Vector2.right;
+    private string queuedTrigger = "ForwardMelee";
+
+
+    // Animator params
+    private static readonly int ANIM_ComboIndex = Animator.StringToHash("ComboIndex");   // Player (float)
+    private static readonly int SWIPE_ComboStage = Animator.StringToHash("ComboStage");   // Weapon (int)
+    private static readonly int SWIPE_PlaySwipe = Animator.StringToHash("PlaySwipe");    // Weapon (trigger)
+
+    // Player direction triggers (unchanged)
+    private const string TRIG_Up = "UpwardMelee";
+    private const string TRIG_UpDiag = "UpwardDiagonalMelee";
+    private const string TRIG_Forward = "ForwardMelee";
+    private const string TRIG_DownDiag = "DownwardDiagonalMelee";
+    private const string TRIG_Down = "DownwardMelee";
+
     private void Start()
     {
-        //references components
-        anim = GetComponent<Animator>(); //The Animator component on the player.
-        characterControl = GetComponent<CharacterControl>();//The main CharacterControl script on the player used for managing grounded state.
-        meleeAnimator = GetComponentInChildren<MeleeWeapon>().gameObject.GetComponent<Animator>();//The animator component on the melee weapon
+        // Auto-wire AttackStickinessController if not set in Inspector
+        if (stickiness == null)
+            stickiness = GetComponent<AttackStickinessController>();
+
+        anim = GetComponent<Animator>();
+        characterControl = GetComponent<CharacterControl>();
+
+        var mw = GetComponentInChildren<MeleeWeapon>();
+        if (mw != null)
+        {
+            meleeAnimator = mw.GetComponent<Animator>();
+            if (meleeAnimator == null) meleeAnimator = mw.GetComponentInChildren<Animator>();
+            if (weaponPivot == null && meleeAnimator != null) weaponPivot = meleeAnimator.transform;
+        }
+        if (weaponPivot == null && meleeAnimator != null)
+            weaponPivot = meleeAnimator.transform;
     }
 
     private void Update()
@@ -43,157 +87,116 @@ public class MeleeAttackManager : MonoBehaviour
         CheckInput();
     }
 
-    private void OnMeleeAttack()
-    {
-        meleeAttackInput = true;
-    }
-
+    // Input System callback (kept)
+    private void OnMeleeAttack() => meleeAttackInput = true;
 
     private void TrySticky()
     {
-        Debug.Log($"[AttackMgr] RawInput=({raw.x:F2},{raw.y:F2}) SnappedDir={meleeAttackDir}");
-        var stick = GetComponent<AttackStickinessController>();
-        if (stick != null)
-            stick.TryStickToNearestEnemy(meleeAttackDir);
-
+        if (stickiness != null)
+            stickiness.TryStickToNearestEnemy(meleeAttackDir);
     }
 
-    private void CheckInput() // Main method to handle melee input and execute corresponding attacks
+    private void CheckInput()
     {
-        // ------------------------------------------------------------------
-        // 1. Gather raw input so that we know which way the player is aiming.
-        // ------------------------------------------------------------------
+        // --- Combo housekeeping ---
+        if (inComboCooldown && Time.time >= comboCooldownUntil) inComboCooldown = false;
+        if (inComboCooldown) { meleeAttackInput = false; return; }
+        if (comboUntil > 0f && Time.time > comboUntil) swingIndex = 1;
 
-        float x = Input.GetAxisRaw("Horizontal"); // Raw horizontal axis value (-1 to 1)
-        float y = Input.GetAxisRaw("Vertical");    // Raw vertical axis value (-1 to 1)
+        // --- 1) Gather raw input (kept) ---
+        float x = Input.GetAxisRaw("Horizontal");
+        float y = Input.GetAxisRaw("Vertical");
+        raw = new Vector2(x, y);
 
-        raw = new Vector2(x, y);                    // Cache for use by other systems
-
-        // Define a small threshold to ignore tiny stick movements (joystick drift)
-        const float deadZone = 0.2f;
-        // If the stick’s overall tilt is less than the dead zone...
-        if (raw.magnitude < deadZone)
+        if (raw.sqrMagnitude <= 0.0001f)
         {
-            meleeAttackDir = Vector2.zero;          // ...treat it as “no direction”
+            meleeAttackDir = Vector2.zero; // still allows default forward later
         }
         else
         {
-            // When one axis is much stronger than the other, we snap to cardinal
+            // Snap to 5 directions (same style as original)
             const float cardinalThreshold = 2.3f;
-            float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y); // absolute X and Y for comparison
+            float ax = Mathf.Abs(raw.x), ay = Mathf.Abs(raw.y);
 
-            Vector2 dir;                               // will hold our snapped direction
-                                                       // If horizontal input dominates by our threshold...
-            if (ax > ay * cardinalThreshold)
-                dir = new Vector2(Mathf.Sign(raw.x), 0);       // ...snap to pure left/right
-                                                               // Else if vertical input dominates...
-            else if (ay > ax * cardinalThreshold)
-                dir = new Vector2(0, Mathf.Sign(raw.y));       // ...snap to pure up/down
-            else
-                // Otherwise, treat it as a diagonal using the sign of each axis
-                dir = new Vector2(Mathf.Sign(raw.x), Mathf.Sign(raw.y));
+            Vector2 dir;
+            if (ax > ay * cardinalThreshold) dir = new Vector2(Mathf.Sign(raw.x), 0f);
+            else if (ay > ax * cardinalThreshold) dir = new Vector2(0f, Mathf.Sign(raw.y));
+            else dir = new Vector2(Mathf.Sign(raw.x), Mathf.Sign(raw.y));
 
-            meleeAttackDir = dir;                      // store the discrete direction (±1,0) or (±1,±1)
+            meleeAttackDir = dir;
         }
 
-        // If the player didn’t actually press the attack button...
-        if (!meleeAttackInput)
-            return;                                    // exit early, no attack to perform
 
-        meleeAttack = meleeAttackInput;                // copy the input flag for any other systems
+        if (!meleeAttackInput) return; // no press this frame
 
-        // This bool tracks whether an attack animation was played at all.
+        meleeAttack = meleeAttackInput; // kept
         bool performedAttack = false;
 
-        // -------------------------------------------------------------
-        // 2. Trigger the player’s swing animation based on the snapped
-        //    direction.  The weapon’s swipe animation is handled later
-        //    so that it can rotate freely.
-        // -------------------------------------------------------------
-        switch (meleeAttackDir)
-        {
-            case var d when d == new Vector2(0, 1):   // straight up
-                anim.SetTrigger("UpwardMelee");       // trigger character animation
-                TrySticky();
-                performedAttack = true;
-                break;
 
-            case var d when d == new Vector2(0, -1)
-                           && !characterControl.isGrounded:  // straight down in air
-                anim.SetTrigger("DownwardMelee");
-                performedAttack = true;
-                break;
 
-            case var d when (d.y == 0):              // forward on ground or no dir
-                anim.SetTrigger("ForwardMelee");
-                TrySticky();
-                performedAttack = true;
-                break;
+        // --- Latch stage & set player's ComboIndex once ---
+        _latchedStage = swingIndex;
+        if (anim != null) anim.SetFloat(ANIM_ComboIndex, _latchedStage);
 
-            case var d when d == new Vector2(1, 1):   // up-right diagonal
-                anim.SetTrigger("UpwardDiagonalMelee");
-                TrySticky();
-                performedAttack = true;
-                break;
+        // --- 2) Fire the correct player swing trigger (unchanged behavior) ---
+        if (meleeAttackDir == new Vector2(0, 1)) { anim.SetTrigger(TRIG_Up); TrySticky(); performedAttack = true; }
+        else if (meleeAttackDir == new Vector2(1, 1)) { anim.SetTrigger(TRIG_UpDiag); TrySticky(); performedAttack = true; }
+        else if (meleeAttackDir == new Vector2(1, 0)) { anim.SetTrigger(TRIG_Forward); TrySticky(); performedAttack = true; }
+        else if (meleeAttackDir == new Vector2(1, -1) && !characterControl.isGrounded)
+        { anim.SetTrigger(TRIG_DownDiag); TrySticky(); performedAttack = true; }
+        else if (meleeAttackDir == new Vector2(0, -1) && !characterControl.isGrounded)
+        { anim.SetTrigger(TRIG_Down); TrySticky(); performedAttack = true; }
+        else if (meleeAttackDir == new Vector2(-1, 0)) { anim.SetTrigger(TRIG_Forward); TrySticky(); performedAttack = true; }
+        else if (meleeAttackDir == new Vector2(-1, 1)) { anim.SetTrigger(TRIG_UpDiag); TrySticky(); performedAttack = true; }
+        else if (meleeAttackDir == new Vector2(-1, -1) && !characterControl.isGrounded)
+        { anim.SetTrigger(TRIG_DownDiag); TrySticky(); performedAttack = true; }
+        else { anim.SetTrigger(TRIG_Forward); TrySticky(); performedAttack = true; }
 
-            case var d when d == new Vector2(1, -1)
-                           && !characterControl.isGrounded: // down-right diagonal in air
-                anim.SetTrigger("DownwardDiagonalMelee");
-                TrySticky();
-                performedAttack = true;
-                break;
-
-            case var d when d == new Vector2(-1, 1):  // up-left diagonal
-                anim.SetTrigger("UpwardDiagonalMelee");
-                TrySticky();
-                performedAttack = true;
-                break;
-
-            case var d when d == new Vector2(-1, -1)
-                           && !characterControl.isGrounded: // down-left diagonal in air
-                anim.SetTrigger("DownwardDiagonalMelee");
-                TrySticky();
-                performedAttack = true;
-                break;
-
-            default:
-                TrySticky();                          // grounded down-diagonal, do nothing
-                break;
-        }
-
-        // -----------------------------------------------------------------
-        // 3. If an attack was performed, rotate the swipe to face the raw
-        //    input direction and trigger the omni-directional swipe effect.
-        // -----------------------------------------------------------------
+        // --- 3) Aim & play the swipe (unchanged signature) ---
         if (performedAttack)
         {
-            // Determine the direction the swipe should face.  If no stick
-            // input is given, default to the character’s facing direction.
             Vector2 swipeDir = raw;
             if (swipeDir == Vector2.zero)
                 swipeDir = characterControl.facingRight ? Vector2.right : Vector2.left;
 
-            // Grounded downward attacks are disallowed; force horizontal.
-            if (characterControl.isGrounded && swipeDir.y < 0)
-                swipeDir.y = 0;
+            if (characterControl.isGrounded && swipeDir.y < 0f)
+                swipeDir.y = 0f; // grounded downward becomes horizontal
 
-            PlayOmniSwipe(swipeDir);                  // rotate + trigger animation
-            meleeAttackInput = false;                 // clear the input flag
+            PlayOmniSwipe(swipeDir);
         }
+
+        // --- 4) Advance combo + timers ---
+        comboUntil = Time.time + comboWindow;
+        if (_latchedStage >= 3)
+        {
+            inComboCooldown = true;
+            comboCooldownUntil = Time.time + comboCooldown;
+            swingIndex = 1;
+        }
+        else swingIndex = _latchedStage + 1;
+
+        meleeAttackInput = false; // clear one-shot
     }
 
+    // Signature unchanged for compatibility with original code.
     private void PlayOmniSwipe(Vector2 direction)
     {
-        if (weaponPivot == null) weaponPivot = meleeAnimator.transform;
+        if (weaponPivot == null)
+        {
+            if (meleeAnimator != null) weaponPivot = meleeAnimator.transform;
+            if (weaponPivot == null) return;
+        }
 
-        // A) Keep local scale positive (preserve your 2x width etc.)
-        var ls = weaponPivot.localScale;
-        ls.x = Mathf.Abs(ls.x);
-        ls.y = Mathf.Abs(ls.y);
-        weaponPivot.localScale = ls;
+        // A) make local scale positive so parent flip doesn’t invert collider
+        if (cancelParentFlip)
+        {
+            var ls = weaponPivot.localScale;
+            ls.x = Mathf.Abs(ls.x);
+            ls.y = Mathf.Abs(ls.y);
+            weaponPivot.localScale = ls;
+        }
 
-        // B) Compute world-space placement & rotation
-        // If the player root is mirrored by scale.x < 0, add 180° so the sprite/collider faces the correct way
+        // B) compute rotation/position with parent-mirror compensation
         var parent = weaponPivot.parent;
         bool parentMirrored = parent && parent.lossyScale.x < 0f;
 
@@ -201,11 +204,17 @@ public class MeleeAttackManager : MonoBehaviour
         if (parentMirrored) angle += 180f;
 
         Vector3 worldPos = transform.position + (Vector3)(direction.normalized * swipeReach);
-
-        // C) Apply world transform (immune to parent flip)
         weaponPivot.SetPositionAndRotation(worldPos, Quaternion.Euler(0f, 0f, angle));
 
-        // D) Trigger the swipe anim (no scale keyframes on it!)
-        meleeAnimator.SetTrigger("OmniMeleeSwipe");
+        // C) trigger the weapon swipe for the CURRENT stage (1/2/3)
+        if (meleeAnimator != null)
+        {
+            meleeAnimator.ResetTrigger(SWIPE_PlaySwipe);
+            meleeAnimator.SetInteger(SWIPE_ComboStage, _latchedStage);
+            meleeAnimator.SetTrigger(SWIPE_PlaySwipe);
+
+            // (optional, if you still have the legacy single-state around)
+            // meleeAnimator.SetTrigger("OmniMeleeSwipe");
+        }
     }
 }

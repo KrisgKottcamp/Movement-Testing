@@ -1,214 +1,323 @@
 ﻿using System;
 using System.Collections;
-using Unity.Cinemachine;
-using Unity.VisualScripting;
 using UnityEngine;
 
-[RequireComponent(typeof(Animator))]
+[DisallowMultipleComponent]
 public class MeleeWeapon : MonoBehaviour
 {
-    // let other systems know when a pogo actually happened
-    public event Action OnPogoPerformed;
+    [Header("Damage")]
+    [SerializeField] private int damageAmount = 1;
+    [SerializeField] private int bruiseDamageAmount = 1;
 
-    [Header("Damage Settings")]
-    [SerializeField] private int damageAmount = 20;
-    [SerializeField] private int bruiseDamageAmount = 20;
-    [SerializeField] private float attackCooldown = 0.2f;         // Time before next pogo
+    [Header("Timing")]
+    [SerializeField, Tooltip("How long before this weapon can hit again after a swing.")]
+    private float attackCooldown = 0.12f;
 
-    [Header("Hit‑Stop Settings")]
-    [Tooltip("Seconds of frozen time on each hit")]
-    [SerializeField] private float hitStopDuration = 0.05f;
-    private CinemachineImpulseSource impulseSource;
-
-    // internal trackers
-    private float _prevTimeScale, _prevFixedDeltaTime;
-
-    [Header("Bounce Settings")]
-    [SerializeField] private float pogoForce = 12f;          // Upward bounce strength
-    [SerializeField] private float bounceBackForce = 5f;          // Backwards bounce strength
-    [SerializeField] private float pogoDownDotThreshold = 0.6f; // 0.6 ≈ within ~53° cone below
-    [SerializeField] public Vector2 hitboxSize = new Vector2(1f, 0.25f);   // Width x Height
-    [SerializeField] public Vector2 hitboxOffset = new Vector2(0f, -0.5f);   // Local space offset
-    [SerializeField] private LayerMask enemyLayer;                    // Layer mask for enemies
-
-    [Header("Attack Hover Settings")]
-    [SerializeField] private float playerHoverDurationAir = 0.10f;
-    [SerializeField] private float playerHoverDurationGround = 0.06f;
-    [SerializeField] private float enemyHoverDuration = 0.10f;
-    [SerializeField] private bool enableHoverOnPogo = false;
-    [SerializeField][Range(0f, 90f)] private float downwardAsPogoAngle = 35f;
-    // Optional: how floaty enemies feel while hovering (0 = keep current)
-    [SerializeField] private float enemyHoverHorizontalDrag = 8f;
+    // In MeleeWeapon.cs (fields)
+    [Header("Hit-Stop")]
+    [SerializeField] private float hitStopDuration = 0.08f;          // your existing base freeze
+    [SerializeField] private float extraHitStopOnBruiseBreak = 0.12f; 
+    [SerializeField, Tooltip("Extra freeze when the swing is the 3rd combo finisher.")]
+    private float extraHitStopOnFinisher = 0.08f;
 
 
+    [Header("Pogo")]
+    [SerializeField] private float pogoForce = 14f;
+    [SerializeField, Tooltip("Dot threshold against Vector2.down to count as a downward aim (-1..1).")]
+    private float pogoDownDotThreshold = 0.55f;
+
+    [Header("Combo Finisher Tracking")]
+    [SerializeField, Tooltip("Window in seconds for counting 3 hits on the SAME enemy.")]
+    private float comboTargetWindow = 0.40f;
+
+    [Header("Finisher Damage Bonus")]
+    [SerializeField, Tooltip("Health damage multiplier applied on the 3rd combo hit.")]
+    private float finisherHealthMultiplier = 1.5f;
+
+    [SerializeField, Tooltip("Bruise damage multiplier applied on the 3rd combo hit.")]
+    private float finisherBruiseMultiplier = 1.5f;
+
+    // (Optional, keep old getter working)
+    public int BruiseDamagePerHit => bruiseDamageAmount;
+    // (Optional helper if other systems want to query finisher bruise)
+    public int BruiseDamagePerHitFinisher => Mathf.Max(0, Mathf.RoundToInt(bruiseDamageAmount * finisherBruiseMultiplier));
+
+
+
+    [Header("Player Hover on Hit")]
+    [SerializeField, Tooltip("AttackHover on the player (auto-wires if left empty).")]
+    private AttackHover playerHover;
+    [SerializeField, Tooltip("Air hover time after a side/up/diag hit.")]
+    private float playerHoverDurationAir = 0.22f;
+    [SerializeField, Tooltip("Ground hover time after a side/up/diag hit.")]
+    private float playerHoverDurationGround = 0.14f;
+    [SerializeField, Tooltip("Also hover on pogo hits (downward). Off by default.")]
+    private bool enableHoverOnPogo = false;
+
+
+
+    // --- References (wired at runtime if not set) ---
     [SerializeField] private CharacterControl characterControl;
-    private MeleeAttackManager meleeAttackManager;
-    public EnemyHealth enemyHealth;
+    [SerializeField] private MeleeAttackManager meleeAttackManager;
+
+    // --- Runtime state ---
     private bool hasAttackedThisSwing = false;
     private Coroutine cooldownCoroutine;
-    private AttackHover playerHover;
-   
 
-    static readonly Collider2D[] _hitBuffer = new Collider2D[4];
+    // Hit-stop stack safety
+    private int _hitStopDepth = 0;
+    private float _prevTimeScale = 1f;
+    private float _prevFixedDeltaTime = 0.02f;
+
+    // Per-target 3-hit tracking
+    private EnemyHealth currentComboTarget = null;
+    private int currentTargetHits = 0;
+    private float comboTargetUntil = -1f;
+
+    // Events
+    public event Action OnPogoPerformed;
 
     private void Awake()
     {
-        characterControl = GetComponentInParent<CharacterControl>();
-        meleeAttackManager = GetComponentInParent<MeleeAttackManager>();
-        playerHover = GetComponentInParent<AttackHover>();
+        if (!characterControl) characterControl = GetComponentInParent<CharacterControl>();
+        if (!meleeAttackManager) meleeAttackManager = GetComponentInParent<MeleeAttackManager>();
+        if (!playerHover) playerHover = GetComponentInParent<AttackHover>();
     }
 
+    private void OnEnable()
+    {
+        // re-arm on enable
+        hasAttackedThisSwing = false;
+    }
 
-
-    public void PerformPogo()
+    // ------------------------------------------------------------
+    // Collision
+    // ------------------------------------------------------------
+    private void OnTriggerEnter2D(Collider2D other)
     {
         if (hasAttackedThisSwing) return;
 
-        Vector2 origin = (Vector2)transform.position + hitboxOffset; // your current box below player
-        int count = Physics2D.OverlapBoxNonAlloc(origin, hitboxSize, 0f, _hitBuffer, enemyLayer);
-        for (int i = 0; i < count; i++)
-        {
-            var enemy = _hitBuffer[i].GetComponentInParent<EnemyHealth>();
-            if (enemy != null && TryPogo(enemy)) break;   // stop after first pogo
-        }
-    }
+        // Be generous about where EnemyHealth lives
+        var enemy = other.GetComponent<EnemyHealth>() ??
+                    other.GetComponentInParent<EnemyHealth>() ??
+                    other.GetComponentInChildren<EnemyHealth>();
 
+        if (enemy == null || enemy.currentHealth <= 0) return;
 
-
-    private void OnTriggerEnter2D(Collider2D col)
-    {
-        if (hasAttackedThisSwing) return;
-
-        var enemy = col.GetComponentInParent<EnemyHealth>();
-        if (!enemy) return;
-
-        // Try pogo first; if it triggers, we're done
+        // First, give POGO a chance (air + down-aim + enemy allows pogo)
         if (TryPogo(enemy)) return;
 
-        // Otherwise do the normal side-hit
+        // Otherwise, handle a normal side/up/diag hit
         HandleCollision(enemy);
     }
 
-    // shared pogo path (used by trigger and by your animation event)
+    // ------------------------------------------------------------
+    // Pogo path — single entry, single hit-stop, no freeze
+    // ------------------------------------------------------------
     private bool TryPogo(EnemyHealth enemy)
     {
-        // Same aim/didPogo code as in PerformPogo()
-        Vector2 aim = meleeAttackManager.meleeAttackDir.sqrMagnitude > 0.0001f
-            ? meleeAttackManager.meleeAttackDir.normalized
-            : (characterControl.facingRight ? Vector2.right : Vector2.left);
+        // Determine the player's current attack aim
+        Vector2 aim = (meleeAttackManager != null && meleeAttackManager.meleeAttackDir.sqrMagnitude > 0.0001f)
+                        ? meleeAttackManager.meleeAttackDir.normalized
+                        : (characterControl != null && characterControl.facingRight ? Vector2.right : Vector2.left);
 
         bool isDownward = Vector2.Dot(aim, Vector2.down) >= pogoDownDotThreshold;
 
-        if (!(enemy.giveUpwardForce && !characterControl.isGrounded && isDownward))
+        // Must be airborne + downward aim + enemy allows pogo
+        if (!(enemy.giveUpwardForce && characterControl != null && !characterControl.isGrounded && isDownward))
             return false;
 
-        StartCoroutine(HitStop());
+        // Prevent double entry BEFORE we start hit-stop
+        if (hasAttackedThisSwing) return false;
+        hasAttackedThisSwing = true;
+
+        // Count this toward the 3-hit chain (finisher not applied on pogo)
+        UpdateComboTarget(enemy);
+
+        // Will this single hit break bruise?
+        bool willBreak = (enemy.CurrentBruise + bruiseDamageAmount) >= enemy.MaxBruise
+                         && !enemy.GaugeIsBroken;
+
+        // One combined freeze request (base + extra if breaking)
+        float freeze = hitStopDuration + (willBreak ? extraHitStopOnBruiseBreak : 0f);
+        HitStopManager.Request(freeze);
+
+
         enemy.Damage(damageAmount, bruiseDamageAmount, Vector2.down);
 
-        // The bounce you already use
-        characterControl.ApplyPogoForce(Vector2.up * pogoForce);
+        // Bounce the player upward
+        if (characterControl != null)
+        {
+            characterControl.ApplyPogoForce(Vector2.up * pogoForce);
+        }
+
+        // Optional hover on pogo
+        if (playerHover != null && enableHoverOnPogo)
+        {
+            // use air duration for pogo, zero vertical vel at start
+            playerHover.BeginHover(playerHoverDurationAir, true, null);
+        }
+
         OnPogoPerformed?.Invoke();
 
-        hasAttackedThisSwing = true;
+        // Rearm after cooldown
         if (cooldownCoroutine != null) StopCoroutine(cooldownCoroutine);
         cooldownCoroutine = StartCoroutine(ResetAttack());
+
         return true;
     }
 
+    // ------------------------------------------------------------
+    // Side / Up / UpDiag / DownDiag hits
+    // ------------------------------------------------------------
     private void HandleCollision(EnemyHealth enemy)
     {
-        // 1) guard so we only ever do this once per attack swing
-        if (hasAttackedThisSwing)
-            return;
+        if (hasAttackedThisSwing) return; // guard
+
         hasAttackedThisSwing = true;
 
-        // 2) Always apply both health and bruise damage:
-        Vector2 hitDir = meleeAttackManager.raw;
-        if (hitDir == Vector2.zero) // If I am not holding a stick direction when attacking, Hit direction defaults to forward.
+
+        //HITSTOP
+        // Use the ACTUAL attack aim so finishers follow your stick/dir
+        Vector2 hitDir = GetAttackAimDir(enemy);
+
+        // Count toward the same-target chain and detect finisher
+        bool finisherNow = UpdateComboTarget(enemy);
+
+        // ---- compute this strike's actual damage numbers ----
+        int hpThisHit = damageAmount;
+        int bruiseThisHit = bruiseDamageAmount;
+
+        if (finisherNow)
         {
-            hitDir = characterControl.facingRight ? Vector2.right : Vector2.left;
+            hpThisHit = Mathf.Max(0, Mathf.RoundToInt(damageAmount * finisherHealthMultiplier));
+            bruiseThisHit = Mathf.Max(0, Mathf.RoundToInt(bruiseDamageAmount * finisherBruiseMultiplier));
         }
 
-        StartCoroutine(HitStop());
+        // ---- ONE combined freeze (base + bruise-break extra + finisher extra) ----
+        bool willBreak = (enemy.CurrentBruise + bruiseThisHit) >= enemy.MaxBruise && !enemy.GaugeIsBroken;
 
-        // 3) Handles Enemy Damage
-        enemy.Damage(damageAmount, bruiseDamageAmount, hitDir);
+        float freeze = hitStopDuration
+                     + (willBreak ? extraHitStopOnBruiseBreak : 0f)
+                     + (finisherNow ? extraHitStopOnFinisher : 0f);
 
-        // If this hit broke the gauge, grant a brief mid-air jump
-        if (enemy.JustBrokeBruise)
+        HitStopManager.Request(freeze);
+
+        // ---- apply damage & knockback ----
+        if (finisherNow)
         {
-            if (characterControl != null)
-                characterControl.GrantBruiseBreakAirJump(1f); // tweak in inspector if you like
+            // Finisher: more damage, more bruise, directional throw
+            enemy.Damage(hpThisHit, bruiseThisHit, hitDir, 1f, finisherThrow: true);
         }
-
-        // bounce the player *away* from the enemy  
-        Vector2 bounceDir = -hitDir;    // (hitDir points TOWARD the enemy, so invert it)
-        characterControl.ApplyBounceBackForce(bounceDir * bounceBackForce);
-
-
-
-        // --- Attack Hover (Player + Enemy) ---
-        Vector2 attackDir =
-            (meleeAttackManager != null && meleeAttackManager.meleeAttackDir.sqrMagnitude > 0.0001f)
-                ? meleeAttackManager.meleeAttackDir.normalized
-                : (characterControl.facingRight ? Vector2.right : Vector2.left);
-
-        bool isDownish = Vector2.Angle(attackDir, Vector2.down) <= downwardAsPogoAngle;
-
-        // Enemy hover: always a short suspend
-        var enemyHover = enemy.GetComponent<AttackHover>();
-        if (enemyHover != null)
-            enemyHover.BeginHover(enemyHoverDuration, true, enemyHoverHorizontalDrag);
-
-        // Player hover: skip down-slash unless explicitly enabled
-        if (playerHover != null && (enableHoverOnPogo || !isDownish))
+        else
         {
-            float dur = (characterControl != null && characterControl.isGrounded) ? playerHoverDurationGround : playerHoverDurationAir;
-            playerHover.BeginHover(dur, true, null);
+            // Normal: base damage + bruise, linear knockback
+            enemy.Damage(hpThisHit, bruiseThisHit, hitDir, 1f);
         }
 
 
+        // Apply damage & route knockback
+        if (finisherNow)
+        {
+            // Finisher: request the "throw" style in EnemyHealth/KnockbackController
+            enemy.Damage(damageAmount, bruiseDamageAmount, hitDir, 1f, finisherThrow: true);
+        }
+        else
+        {
+            // Normal: linear knockback (mul=1 here; keep your own mul if desired)
+            enemy.Damage(damageAmount, bruiseDamageAmount, hitDir, 1f);
+        }
 
-        if (cooldownCoroutine != null) 
-            StopCoroutine(cooldownCoroutine);
+        // Trigger player hover on side/up/diag (skip downward unless you want it)
+        if (playerHover != null)
+        {
+            bool isDownish = Vector2.Dot(hitDir.normalized, Vector2.down) >= pogoDownDotThreshold;
+            if (!isDownish || enableHoverOnPogo)
+            {
+                float dur = (characterControl != null && characterControl.isGrounded)
+                            ? playerHoverDurationGround
+                            : playerHoverDurationAir;
+
+                playerHover.BeginHover(dur, true, null); // zero Y, unscaled-time hover
+            }
+        }
+
+        // (optional: your extra effects here — hover, player bounce-back, VFX, SFX, camera nudge, etc.)
+
+        // Rearm after per-swing cooldown
+        if (cooldownCoroutine != null) StopCoroutine(cooldownCoroutine);
         cooldownCoroutine = StartCoroutine(ResetAttack());
-
-
     }
 
-    private IEnumerator HitStop()
+    // ------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------
+
+    // Use the snapped 5-way aim from the manager; fallbacks preserve directionality.
+    private Vector2 GetAttackAimDir(EnemyHealth enemy)
     {
+        if (meleeAttackManager != null && meleeAttackManager.meleeAttackDir.sqrMagnitude > 0.0001f)
+            return meleeAttackManager.meleeAttackDir.normalized;
 
-        // store current time settings
-        _prevTimeScale = Time.timeScale;
-        _prevFixedDeltaTime = Time.fixedDeltaTime;
+        if (characterControl != null)
+        {
+            Vector2 toEnemy = (Vector2)enemy.transform.position - (Vector2)characterControl.transform.position;
+            if (toEnemy.sqrMagnitude > 0.0001f) return toEnemy.normalized;
+            return characterControl.facingRight ? Vector2.right : Vector2.left;
+        }
 
-        // freeze everything
-        Time.timeScale = 0f;
-        Time.fixedDeltaTime = 0f;
-
-        // wait in REAL time (unaffected by timeScale)
-        yield return new WaitForSecondsRealtime(hitStopDuration);
-
-        // restore normal time
-        Time.timeScale = _prevTimeScale;
-        Time.fixedDeltaTime = _prevFixedDeltaTime;
+        return Vector2.right;
     }
 
+    // Update per-target counters; returns true on 3rd (or more) connect within the window
+    private bool UpdateComboTarget(EnemyHealth enemy)
+    {
+        if (Time.time > comboTargetUntil)
+        {
+            currentComboTarget = null;
+            currentTargetHits = 0;
+        }
+
+        if (currentComboTarget == null || currentComboTarget != enemy)
+        {
+            currentComboTarget = enemy;
+            currentTargetHits = 1;
+        }
+        else
+        {
+            currentTargetHits++;
+        }
+
+        comboTargetUntil = Time.time + comboTargetWindow;
+        return currentTargetHits >= 3;
+    }
 
     private IEnumerator ResetAttack()
     {
         yield return new WaitForSeconds(attackCooldown);
         hasAttackedThisSwing = false;
-        
     }
 
-    private void OnDrawGizmosSelected()
+    // Re-entrant-safe hit stop that restores timeScale correctly even on overlap
+    private IEnumerator HitStop()
     {
-        // Draws box for tuning
-        Gizmos.color = Color.red;
+        if (_hitStopDepth == 0)
+        {
+            _prevTimeScale = Time.timeScale;
+            _prevFixedDeltaTime = Time.fixedDeltaTime;
+            Time.timeScale = 0f;
+            Time.fixedDeltaTime = 0f;
+        }
 
-        Vector2 origin = (Vector2)transform.position + hitboxOffset;
-        Gizmos.DrawWireCube(origin, hitboxSize);
+        _hitStopDepth++;
+
+        yield return new WaitForSecondsRealtime(hitStopDuration);
+
+        _hitStopDepth--;
+        if (_hitStopDepth == 0)
+        {
+            Time.timeScale = _prevTimeScale;
+            Time.fixedDeltaTime = _prevFixedDeltaTime;
+        }
     }
 }

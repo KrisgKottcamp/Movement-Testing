@@ -348,7 +348,7 @@ Rigidbody2D:
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_Interpolate: 1
+  m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
@@ -364,6 +364,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2455edc9c5e79b40bdd06fb7e756f7b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rb: {fileID: 0}
+  animator: {fileID: 0}
   wallCheck: {fileID: 8371505141101834759}
   wallLayer:
     serializedVersion: 2
@@ -375,6 +377,23 @@ MonoBehaviour:
   jumpforce: 12
   fallMult: 8
   jumpTime: 0.2
+  raycastDistance: 0
+  isGrounded: 1
+  jumpLaunchHorizImpulse: 1.5
+  baseGravity: 8
+  ascendMult: 0.85
+  apexMult: 0.7
+  apexThreshold: 1
+  descendMult: 1.8
+  jumpCutMult: 2
+  fastFallMult: 2.2
+  fastFallDownInput: -0.5
+  terminalFallSpeed: -25
+  airSpeedMultiplier: 1.15
+  airAccelMultiplier: 1.2
+  maxAirSpeed: 12
+  hover: {fileID: 0}
+  bruiseBreakAirJumpWindow: 0.18
   missCompensation: 1.6
   mover: 0
   moveSpeed: 10
@@ -393,7 +412,14 @@ MonoBehaviour:
   dashInput: 0
   dashingSpeed: 28
   dashingTime: 0.2
+  dashingDir: {x: 0, y: 0}
   isDashing: 0
+  dashAction: {fileID: 0}
+  legacyDashCancel: 0
+  legacyDashButton: Dash
+  bounceBackLerpTime: 0.2
+  isMovementLocked: 0
+  isPogoBouncing: 0
 --- !u!114 &8588552791635837835
 MonoBehaviour:
   m_ObjectHideFlags: 0

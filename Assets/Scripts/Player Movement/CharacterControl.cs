@@ -175,6 +175,13 @@ public class CharacterControl : MonoBehaviour
         Dashing();
     }
 
+    private void SetGravityRespectHover(float value)
+    {
+        if (hover != null && hover.IsHovering) rb.gravityScale = 0f;
+        else rb.gravityScale = value;
+    }
+
+
     private void MovementController()
     {
 
